@@ -1,0 +1,14 @@
+{
+  "recommendations": [
+    "rooveterinaryinc.roo-cline",
+    "coderabbit.coderabbit-ai",
+    "ms-vscode-remote.remote-containers",
+    "ms-azuretools.vscode-docker",
+    "Prisma.prisma",
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "bradlc.vscode-tailwindcss",
+    "eamodio.gitlens",
+    "GitHub.vscode-pull-request-github"
+  ]
+}

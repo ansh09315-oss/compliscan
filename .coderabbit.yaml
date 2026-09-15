@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "en-US"
+tone_instructions: "Be rigorous, precise, and act as a senior legal metrology software architect and full-stack security reviewer. Ensure strict adherence to Legal Metrology (Packaged Commodities) Rules 2011, Section 63 BSA compliance, and TypeScript best practices."
+early_access: false
+
+reviews:
+  profile: "assertive"
+  request_changes_workflow: true
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - "main"
+      - "master"
+      - "develop"
+  path_filters:
+    - "!**/node_modules/**"
+    - "!**/.next/**"
+    - "!**/dist/**"
+    - "!**/coverage/**"
+    - "!**/*.lock"
+    - "!package-lock.json"
+    - "!public/mock-samples/**"
+  path_instructions:
+    - path: "src/lib/complianceEngine.ts"
+      instructions: "Ensure all statutory rules (Rule 6, Rule 7, Rule 8, Rule 11 of Legal Metrology Packaged Commodities Rules 2011) have exact unit conversions, threshold bounds, and legal citation references. Verify digital evidence hash integrity."
+    - path: "src/lib/crypto.ts"
+      instructions: "Audit all SHA-256 and cryptographic verification flows for Bharatiya Sakshya Adhiniyam (BSA) Section 63 electronic evidence admissibility."
+    - path: "src/components/screens/**"
+      instructions: "Verify offline fallback resilience, high contrast ratios, responsive mobile viewport scaling for hand-held inspection tablets, and clear error boundaries."
+    - path: "prisma/**"
+      instructions: "Check database index efficiency, cascade deletes, and data integrity for inspection audit trails."
+
+chat:
+  auto_reply: true
+
+knowledge_base:
+  opt_out: false

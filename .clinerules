@@ -1,0 +1,23 @@
+# Roo Code System Rules - CompliScan AI
+
+## Project Overview
+CompliScan AI is an automated Legal Metrology (Packaged Commodities) compliance inspection platform built on Next.js 15, React 19, TypeScript, Tailwind CSS, Prisma, and Lucide React. It provides real-time statutory verification, offline inspection caching, and Section 63 BSA electronic evidence generation.
+
+## Key Architecture & Domain Rules
+1. **Legal Metrology Domain**:
+   - Rule 6: Mandatory declarations (Name/Address, Generic Name, Net Quantity, MRP, Month/Year, Country of Origin, Consumer Care).
+   - Rule 7: Net quantity standard units (kg, g, L, mL, m, mm, No.).
+   - Rule 8: Minimum font height calculation based on Principal Display Panel (PDP) area.
+   - Rule 11: Multi-piece / wholesale packages.
+   - Evidence Hash: SHA-256 digital fingerprint conforming to Section 63 Bharatiya Sakshya Adhiniyam (BSA).
+
+2. **Code Standards**:
+   - Strictly typed TypeScript (no implicit `any`).
+   - Client components marked with `'use client'`.
+   - Responsive layouts optimized for handheld tablets and field officer devices.
+   - Zustand stores (`useAppStore`) handle screen navigation and reactive state.
+   - IndexedDB & LocalStorage for offline queue persistence.
+
+3. **Workflow Guarantees**:
+   - Run linter and type-checker before pushing.
+   - Maintain idempotent database migrations and seed scripts.

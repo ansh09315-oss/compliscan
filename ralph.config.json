@@ -1,0 +1,25 @@
+{
+  "name": "CompliScan RALPH Autonomous Loop",
+  "version": "1.0.0",
+  "description": "Continuous Read-Act-Learn-Patch-Halt autonomous validation loop",
+  "maxIterations": 5,
+  "stages": [
+    {
+      "name": "Stage 1: TypeScript Check",
+      "command": "npx tsc --noEmit",
+      "autoFix": false
+    },
+    {
+      "name": "Stage 2: ESLint Linter",
+      "command": "npm run lint -- --max-warnings 10",
+      "autoFix": "npx eslint --fix"
+    },
+    {
+      "name": "Stage 3: Next.js Build",
+      "command": "npm run build",
+      "autoFix": false
+    }
+  ],
+  "haltOnSuccess": true,
+  "logDir": ".ralph/logs"
+}

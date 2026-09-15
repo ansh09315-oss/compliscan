@@ -1,0 +1,103 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Inspector {
+  id               String              @id @default(uuid())
+  badgeNumber      String              @unique
+  fullName         String
+  email            String              @unique
+  assignedDistrict String
+  stateTerritory   String              @default("Delhi NCT")
+  publicKey        String              @default("RSA-2048-GOV-SIMULATED-KEY")
+  isActive         Boolean             @default(true)
+  inspections      InspectionDossier[]
+  createdAt        DateTime            @default(now())
+}
+
+model InspectionDossier {
+  id                    String   @id @default(uuid())
+  dossierReferenceCode  String   @unique
+  inspectorId           String
+  inspector             Inspector @relation(fields: [inspectorId], references: [id])
+  inspectionTimestamp   DateTime @default(now())
+
+  // Product Identification
+  productName          String
+  brandName            String
+  category             String   // FOOD_BEVERAGES, PERSONAL_CARE_COSMETICS, etc.
+  packagingGeometry    String   // RECTANGULAR_BOX, CYLINDRICAL_CONTAINER, etc.
+
+  // Spatial Dimensions & PDP
+  containerHeightMm    Float
+  containerWidthMm     Float?
+  circumferenceMm      Float?
+  pdpAreaCm2           Float
+
+  // Extracted Declarations
+  declaredNetQuantity  Float
+  declaredNetUnit      String
+  declaredMrp          Float
+  declaredUspValue     Float?
+  declaredUspUnit      String?
+  declaredMfgMonth     Int
+  declaredMfgYear      Int
+  manufacturerName     String?
+  manufacturerAddress  String?
+  countryOfOrigin      String?
+  consumerCarePhone    String?
+  consumerCareEmail    String?
+
+  // Verification Results
+  detectedFontHeightMm Float
+  complianceScore      Float
+  verdict              String   // COMPLIANT, PARTIALLY_COMPLIANT, NON_COMPLIANT, REVIEW_REQUIRED
+
+  // Section 63 BSA 2023 Evidentiary Metadata
+  masterSha256Hash     String
+  deviceHardwareId     String
+  geoLatitude          Float?
+  geoLongitude         Float?
+  isTamperEvident      Boolean  @default(true)
+
+  // Offline Synchronization
+  isSyncedToCentral    Boolean  @default(true)
+  syncedAt             DateTime?
+
+  // Relations
+  capturedAngles       InspectionArtifact[]
+  violations           ViolationRecord[]
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model InspectionArtifact {
+  id            String             @id @default(uuid())
+  dossierId     String
+  dossier       InspectionDossier  @relation(fields: [dossierId], references: [id], onDelete: Cascade)
+  angleType     String
+  imageDataUrl  String
+  sha256Hash    String
+  opticalWidth  Int
+  opticalHeight Int
+  createdAt     DateTime           @default(now())
+}
+
+model ViolationRecord {
+  id                 String             @id @default(uuid())
+  dossierId          String
+  dossier            InspectionDossier  @relation(fields: [dossierId], references: [id], onDelete: Cascade)
+  statutoryRuleRef   String
+  severity           String
+  violationTitle     String
+  defectDescription  String
+  detectedValue      String?
+  requiredValue      String
+  croppedEvidenceUrl String?
+  createdAt          DateTime           @default(now())
+}

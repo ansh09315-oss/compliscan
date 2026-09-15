@@ -1,0 +1,335 @@
+@import "tailwindcss";
+
+/* ─── Government Design System Tokens ─────────────────────────────────────── */
+
+:root {
+  --navy: #0B2545;
+  --navy-light: #13315C;
+  --navy-dark: #061529;
+  --slate-bg: #F4F6F9;
+  --card-bg: #FFFFFF;
+  --card-border: #E2E8F0;
+  --primary-blue: #1D4ED8;
+  --primary-blue-hover: #1E40AF;
+  --compliant-green: #16A34A;
+  --compliant-green-bg: #DCFCE7;
+  --violation-red: #DC2626;
+  --violation-red-bg: #FEE2E2;
+  --amber-warning: #F59E0B;
+  --amber-warning-bg: #FEF3C7;
+  --emblem-gold: #D4AF37;
+  --text-primary: #1E293B;
+  --text-secondary: #64748B;
+  --text-muted: #94A3B8;
+  --text-white: #FFFFFF;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ─── Global Resets ───────────────────────────────────────────────────────── */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background-color: var(--slate-bg);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Scrollbar Styling ───────────────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--text-muted);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* ─── Utility Classes ─────────────────────────────────────────────────────── */
+
+.gov-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--transition-fast);
+}
+.gov-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.gov-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  border: none;
+  transition: all var(--transition-fast);
+  text-decoration: none;
+}
+.gov-btn:active {
+  transform: scale(0.98);
+}
+
+.gov-btn-primary {
+  background: var(--primary-blue);
+  color: var(--text-white);
+}
+.gov-btn-primary:hover {
+  background: var(--primary-blue-hover);
+  box-shadow: 0 4px 12px rgba(29, 78, 216, 0.4);
+}
+
+.gov-btn-success {
+  background: var(--compliant-green);
+  color: var(--text-white);
+}
+.gov-btn-success:hover {
+  background: #15803D;
+}
+
+.gov-btn-danger {
+  background: var(--violation-red);
+  color: var(--text-white);
+}
+.gov-btn-danger:hover {
+  background: #B91C1C;
+}
+
+.gov-btn-outline {
+  background: transparent;
+  border: 1.5px solid var(--card-border);
+  color: var(--text-primary);
+}
+.gov-btn-outline:hover {
+  border-color: var(--primary-blue);
+  color: var(--primary-blue);
+  background: rgba(29, 78, 216, 0.05);
+}
+
+.gov-btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+}
+.gov-btn-ghost:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-primary);
+}
+
+/* ─── Badge / Pill ────────────────────────────────────────────────────────── */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.badge-green {
+  background: var(--compliant-green-bg);
+  color: var(--compliant-green);
+}
+.badge-red {
+  background: var(--violation-red-bg);
+  color: var(--violation-red);
+}
+.badge-amber {
+  background: var(--amber-warning-bg);
+  color: #B45309;
+}
+.badge-blue {
+  background: #DBEAFE;
+  color: var(--primary-blue);
+}
+.badge-navy {
+  background: var(--navy);
+  color: var(--text-white);
+}
+
+/* ─── Input Styles ────────────────────────────────────────────────────────── */
+
+.gov-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid var(--card-border);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--card-bg);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  outline: none;
+}
+.gov-input:focus {
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.15);
+}
+.gov-input::placeholder {
+  color: var(--text-muted);
+}
+
+.gov-select {
+  appearance: none;
+  width: 100%;
+  padding: 10px 36px 10px 14px;
+  border: 1.5px solid var(--card-border);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--card-bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") right 12px center/12px no-repeat;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  outline: none;
+  cursor: pointer;
+}
+.gov-select:focus {
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.15);
+}
+
+/* ─── Navbar ──────────────────────────────────────────────────────────────── */
+
+.gov-navbar {
+  background: var(--navy);
+  color: var(--text-white);
+  padding: 0 24px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+/* ─── Gauge Animation ─────────────────────────────────────────────────────── */
+
+@keyframes gauge-fill {
+  from { stroke-dashoffset: 314; }
+}
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(29, 78, 216, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(29, 78, 216, 0); }
+}
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+@keyframes slide-out-right {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+@keyframes progress-bar {
+  from { width: 0%; }
+}
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.4s ease-out forwards;
+}
+.animate-pulse-glow {
+  animation: pulse-glow 2s infinite;
+}
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease-out forwards;
+}
+.animate-slide-out-right {
+  animation: slide-out-right 0.3s ease-out forwards;
+}
+.animate-spin-slow {
+  animation: spin-slow 2s linear infinite;
+}
+
+/* ─── Offline Banner ──────────────────────────────────────────────────────── */
+
+.offline-banner {
+  background: linear-gradient(90deg, var(--amber-warning), #D97706);
+  color: var(--text-white);
+  text-align: center;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* ─── Table Styles ────────────────────────────────────────────────────────── */
+
+.gov-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.gov-table th {
+  background: var(--slate-bg);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--card-border);
+}
+.gov-table td {
+  padding: 12px 16px;
+  font-size: 14px;
+  border-bottom: 1px solid var(--card-border);
+  color: var(--text-primary);
+}
+.gov-table tbody tr {
+  transition: background var(--transition-fast);
+}
+.gov-table tbody tr:hover {
+  background: rgba(29, 78, 216, 0.03);
+}
+
+/* ─── Responsive Layout ───────────────────────────────────────────────────── */
+
+.screen-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+@media (max-width: 768px) {
+  .screen-container {
+    padding: 16px;
+  }
+}
