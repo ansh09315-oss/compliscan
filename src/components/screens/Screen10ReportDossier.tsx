@@ -25,11 +25,60 @@ export default function Screen10ReportDossier() {
     REVIEW_REQUIRED: 'var(--primary-blue)',
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     // Save to history
     addToHistory(activeDossier);
 
-    // Create printable version
+    try {
+      const payload = {
+        dossierCode: activeDossier.dossierReferenceCode,
+        imageSha256: activeDossier.masterSha256Hash,
+        extractedData: {
+          productName: activeDossier.productName,
+          category: activeDossier.category,
+          packagingGeometry: activeDossier.packagingGeometry,
+          netQuantityValue: activeDossier.declaredNetQuantity,
+          netQuantityUnit: activeDossier.declaredNetUnit,
+          mrpValue: activeDossier.declaredMrp,
+          declaredUspValue: activeDossier.declaredUspValue,
+          declaredUspUnit: activeDossier.declaredUspValue ? `per ${activeDossier.declaredNetUnit}` : undefined,
+        },
+        evaluation: {
+          complianceScore: activeDossier.complianceScore,
+          verdict: activeDossier.verdict,
+          violations: activeDossier.violations.map(v => ({
+            ruleCode: v.statutoryRuleRef,
+            severity: v.severity,
+            defect: v.defectDescription,
+            detected: v.detectedValue || 'N/A',
+            expected: v.requiredValue
+          }))
+        }
+      };
+
+      const res = await fetch('http://localhost:8000/api/v1/inspection/export-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `CompliScan_Judicial_Dossier_${activeDossier.dossierReferenceCode}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        return;
+      }
+    } catch (e) {
+      console.warn('Backend PDF export error, falling back to print dialog:', e);
+    }
+
+    // Fallback printable view
     window.print();
   };
 

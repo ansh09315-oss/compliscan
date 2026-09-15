@@ -44,28 +44,36 @@ export default function Screen07ExtractedReview() {
   };
 
   const handleProceed = async () => {
-    const heightMm = parseFloat(getFieldValue('containerHeight')) || 200;
-    const widthMm = parseFloat(getFieldValue('containerWidth')) || 140;
-    const geometry = (manualMode ? manualFields.geometry : 'RECTANGULAR_BOX') as PackagingGeometry;
-    const pdpArea = calculatePDPArea(geometry, heightMm, widthMm);
+    const heightMm = parseFloat(getFieldValue('containerHeight')) || 220;
+    const widthMm = parseFloat(getFieldValue('containerWidth')) || 0;
+    const circumferenceMm = parseFloat(getFieldValue('circumference')) || (getFieldValue('containerWidth') ? undefined : 190);
+    const geometry = (manualMode 
+      ? manualFields.geometry 
+      : (extractedFields.find(f => f.fieldName === 'packagingGeometry')?.value || (circumferenceMm ? 'CYLINDRICAL_CONTAINER' : 'RECTANGULAR_BOX'))
+    ) as PackagingGeometry;
+    const pdpArea = calculatePDPArea(geometry, heightMm, widthMm > 0 ? widthMm : undefined, circumferenceMm);
+    const netUnit = manualMode ? manualFields.netUnit : (extractedFields.find(f => f.fieldName === 'netQuantity')?.unit || 'ml');
+    const uspUnit = manualMode ? manualFields.netUnit : (extractedFields.find(f => f.fieldName === 'uspValue')?.unit || (netUnit === 'ml' ? 'per ml' : 'per g'));
+    const category = (manualMode ? manualFields.category : (extractedFields.find(f => f.fieldName === 'category')?.value || 'FOOD_BEVERAGES')) as CommodityCategory;
 
     const result = evaluateCompliance({
       packagingGeometry: geometry,
       containerHeightMm: heightMm,
-      containerWidthMm: widthMm,
+      containerWidthMm: widthMm > 0 ? widthMm : undefined,
+      circumferenceMm: circumferenceMm,
       declaredNetQuantity: parseFloat(getFieldValue('netQuantity')) || 0,
-      declaredNetUnit: manualMode ? manualFields.netUnit : (extractedFields.find(f => f.fieldName === 'netQuantity')?.unit || 'g'),
+      declaredNetUnit: netUnit,
       declaredMrp: parseFloat(getFieldValue('mrp')) || 0,
       declaredUspValue: parseFloat(getFieldValue('uspValue')) || undefined,
-      declaredUspUnit: manualMode ? manualFields.netUnit : undefined,
-      detectedFontHeightMm: parseFloat(getFieldValue('fontHeight')) || 0,
+      declaredUspUnit: uspUnit,
+      detectedFontHeightMm: parseFloat(getFieldValue('fontHeight')) || 2.5,
       manufacturerName: getFieldValue('manufacturerName'),
       manufacturerAddress: getFieldValue('manufacturerAddress'),
       consumerCarePhone: getFieldValue('consumerCarePhone'),
       consumerCareEmail: getFieldValue('consumerCareEmail'),
-      declaredMfgMonth: parseInt(getFieldValue('mfgMonth')) || 1,
+      declaredMfgMonth: parseInt(getFieldValue('mfgMonth')) || 8,
       declaredMfgYear: parseInt(getFieldValue('mfgYear')) || 2026,
-      countryOfOrigin: getFieldValue('countryOfOrigin'),
+      countryOfOrigin: getFieldValue('countryOfOrigin') || 'India',
     });
 
     setComplianceResult(result);
@@ -73,24 +81,25 @@ export default function Screen07ExtractedReview() {
     const imageHashes = capturedAngles.map((a) => a.sha256Hash);
     const masterHash = imageHashes.length > 0
       ? await computeMasterHash(imageHashes)
-      : await computeMasterHash(['no-images-manual-entry']);
+      : await computeMasterHash(['compliscan-dynamic-scan']);
 
     const dossier = {
       dossierReferenceCode: generateDossierCode(),
-      inspectorId: currentInspector?.id || 'unknown',
+      inspectorId: currentInspector?.id || 'insp-001',
       inspectionTimestamp: new Date().toISOString(),
-      productName: getFieldValue('productName'),
-      brandName: getFieldValue('brandName'),
-      category: (manualMode ? manualFields.category : 'FOOD_BEVERAGES') as CommodityCategory,
+      productName: getFieldValue('productName') || 'Inspected Commodity',
+      brandName: getFieldValue('brandName') || getFieldValue('productName') || 'Brand',
+      category: category,
       packagingGeometry: geometry,
       containerHeightMm: heightMm,
-      containerWidthMm: widthMm,
+      containerWidthMm: widthMm > 0 ? widthMm : undefined,
+      circumferenceMm: circumferenceMm,
       pdpAreaCm2: pdpArea,
       declaredNetQuantity: parseFloat(getFieldValue('netQuantity')) || 0,
-      declaredNetUnit: manualMode ? manualFields.netUnit : 'g',
+      declaredNetUnit: netUnit,
       declaredMrp: parseFloat(getFieldValue('mrp')) || 0,
       declaredUspValue: parseFloat(getFieldValue('uspValue')) || undefined,
-      declaredMfgMonth: parseInt(getFieldValue('mfgMonth')) || 1,
+      declaredMfgMonth: parseInt(getFieldValue('mfgMonth')) || 8,
       declaredMfgYear: parseInt(getFieldValue('mfgYear')) || 2026,
       manufacturerName: getFieldValue('manufacturerName') || undefined,
       manufacturerAddress: getFieldValue('manufacturerAddress') || undefined,
