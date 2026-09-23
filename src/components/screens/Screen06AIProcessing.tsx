@@ -3,11 +3,11 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useAppStore } from '@/lib/store';
 import type { ProcessingStep } from '@/types/metrology';
-import { Loader2, CheckCircle, Circle, Cpu, Zap, Layers, Check } from 'lucide-react';
+import { Loader2, Circle, Cpu, Layers, Check, AlertTriangle, RotateCcw, Camera, ArrowRight } from 'lucide-react';
 
 const STEP_LABELS = [
   '📸 4-Panel Ingestion: Front (PDP), Back, Regulatory & MRP',
-  '🧠 Gemini 2.5 Flash Multi-Angle VLM Semantic Synthesis',
+  '🧠 Gemini Multimodal Multi-Angle VLM Semantic Synthesis',
   '🔬 4-Stage Multi-Panel Image Enhancement (CLAHE + Morph)',
   '📐 PaddleOCR PDP Typography & Numeral Height Calibration (Rule 7)',
   '⚖️ Brain MD: Cross-Panel Anti-Hallucination Arbitration',
@@ -16,12 +16,10 @@ const STEP_LABELS = [
 export default function Screen06AIProcessing() {
   const { setScreen, setProcessingSteps, setIsProcessing, scanProductImage, capturedAngles } = useAppStore();
   const [steps, setLocalSteps] = useState<ProcessingStep[]>(
-    STEP_LABELS.map((label, i) => ({ id: i + 1, label, status: 'pending', progress: 0 }))
+    STEP_LABELS.map((label, i) => ({ id: i + 1, label, status: i === 0 ? 'active' : 'pending', progress: 0 }))
   );
   const [overallProgress, setOverallProgress] = useState(0);
   const [isLiveScanning, setIsLiveScanning] = useState(true);
-  const scanPromiseRef = useRef<Promise<any> | null>(null);
-
   const [scanError, setScanError] = useState<string | null>(null);
 
   const processImageWithBackend = useCallback(async () => {
@@ -56,89 +54,100 @@ export default function Screen06AIProcessing() {
     }
   }, [capturedAngles, scanProductImage]);
 
-  useEffect(() => {
+  const startPipeline = useCallback(() => {
+    setScanError(null);
     setIsProcessing(true);
+    setIsLiveScanning(true);
+    setOverallProgress(0);
+    setLocalSteps(STEP_LABELS.map((label, i) => ({ id: i + 1, label, status: i === 0 ? 'active' : 'pending', progress: 0 })));
+
     let isCancelled = false;
     let currentStep = 0;
     let progress = 0;
 
-    const runInspectionPipeline = async () => {
-      // 1. Kick off real backend scan promise
-      const scanPromise = processImageWithBackend();
+    const interval = setInterval(() => {
+      if (isCancelled) {
+        clearInterval(interval);
+        return;
+      }
 
-      // 2. Animate steps smoothly while backend processes concurrently
-      const interval = setInterval(() => {
-        if (isCancelled) {
-          clearInterval(interval);
+      progress += Math.random() * 12 + 10;
+
+      if (progress >= 100) {
+        if (currentStep < 4) {
+          progress = 0;
+          currentStep++;
+          setLocalSteps((prev) => {
+            const updated = [...prev];
+            if (currentStep - 1 >= 0) {
+              updated[currentStep - 1] = { ...updated[currentStep - 1], status: 'completed', progress: 100 };
+            }
+            if (currentStep < updated.length) {
+              updated[currentStep] = { ...updated[currentStep], status: 'active', progress: 0 };
+            }
+            return updated;
+          });
+        } else {
+          progress = 94;
+        }
+      }
+
+      setLocalSteps((prev) => {
+        const updated = [...prev];
+        if (currentStep < updated.length) {
+          updated[currentStep] = { ...updated[currentStep], status: 'active', progress };
+        }
+        return updated;
+      });
+
+      setOverallProgress(Math.min(92, Math.round(((currentStep * 100 + progress) / (STEP_LABELS.length * 100)) * 100)));
+    }, 150);
+
+    processImageWithBackend()
+      .then((result) => {
+        clearInterval(interval);
+        if (isCancelled) return;
+
+        if (!result?.success) {
+          setScanError(result?.error || 'Unable to complete packaging extraction. Please try again or continue manually.');
+          setIsLiveScanning(false);
+          setIsProcessing(false);
           return;
         }
 
-        progress += Math.random() * 12 + 10;
+        // 4. Mark all steps completed and reach 100%
+        setLocalSteps(
+          STEP_LABELS.map((label, i) => ({ id: i + 1, label, status: 'completed', progress: 100 }))
+        );
+        setOverallProgress(100);
+        setIsLiveScanning(false);
+        setIsProcessing(false);
 
-        // Cap animation at step 5 (94%) until backend completes
-        if (progress >= 100) {
-          if (currentStep < 4) {
-            progress = 0;
-            currentStep++;
-            setLocalSteps((prev) => {
-              const updated = [...prev];
-              if (currentStep - 1 >= 0) {
-                updated[currentStep - 1] = { ...updated[currentStep - 1], status: 'completed', progress: 100 };
-              }
-              if (currentStep < updated.length) {
-                updated[currentStep] = { ...updated[currentStep], status: 'active', progress: 0 };
-              }
-              return updated;
-            });
-          } else {
-            // Stay at active step 5 (Brain MD cross-validation) until backend resolves
-            progress = 94;
+        // 5. Smooth transition to review
+        setTimeout(() => {
+          if (!isCancelled) {
+            setScreen('extracted-review');
           }
-        }
-
-        setLocalSteps((prev) => {
-          const updated = [...prev];
-          if (currentStep < updated.length) {
-            updated[currentStep] = { ...updated[currentStep], status: 'active', progress };
-          }
-          return updated;
-        });
-
-        setOverallProgress(Math.min(92, Math.round(((currentStep * 100 + progress) / (STEP_LABELS.length * 100)) * 100)));
-      }, 150);
-
-      // 3. Await actual backend scan completion
-      const result = await scanPromise;
-      clearInterval(interval);
-
-      if (isCancelled) return;
-
-      if (!result?.success && result?.error) {
-        setScanError(result.error);
-      }
-
-      // 4. Mark all steps completed and reach 100%
-      setLocalSteps(
-        STEP_LABELS.map((label, i) => ({ id: i + 1, label, status: 'completed', progress: 100 }))
-      );
-      setOverallProgress(100);
-      setIsLiveScanning(false);
-      setIsProcessing(false);
-
-      // 5. Smooth transition to review
-      setTimeout(() => {
-        if (!isCancelled) {
-          setScreen('extracted-review');
-        }
-      }, 700);
-    };
-
-    runInspectionPipeline();
+        }, 700);
+      })
+      .catch((err) => {
+        clearInterval(interval);
+        if (isCancelled) return;
+        setScanError(err?.message || 'Unexpected network error during scan.');
+        setIsLiveScanning(false);
+        setIsProcessing(false);
+      });
 
     return () => {
       isCancelled = true;
+      clearInterval(interval);
     };
-  }, [setScreen, setIsProcessing, setProcessingSteps, processImageWithBackend]);
+  }, [processImageWithBackend, setIsProcessing, setScreen]);
+
+  useEffect(() => {
+    const cleanup = startPipeline();
+    return cleanup;
+  }, [startPipeline]);
 
   useEffect(() => {
     setProcessingSteps(steps);
@@ -164,19 +173,29 @@ export default function Screen06AIProcessing() {
             height: '76px',
             margin: '0 auto 16px',
             borderRadius: '50%',
-            background: 'rgba(29, 78, 216, 0.2)',
+            background: scanError ? 'rgba(239, 68, 68, 0.2)' : 'rgba(29, 78, 216, 0.2)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 0 30px rgba(96, 165, 250, 0.3)',
+            boxShadow: scanError ? '0 0 30px rgba(239, 68, 68, 0.3)' : '0 0 30px rgba(96, 165, 250, 0.3)',
           }}>
-            <Cpu size={38} color="#60A5FA" className={overallProgress < 100 ? 'animate-spin-slow' : ''} />
+            {scanError ? (
+              <AlertTriangle size={38} color="#F87171" />
+            ) : (
+              <Cpu size={38} color="#60A5FA" className={overallProgress < 100 ? 'animate-spin-slow' : ''} />
+            )}
           </div>
           <h1 style={{ color: '#FFFFFF', fontSize: '23px', fontWeight: 700 }}>
-            {overallProgress < 100 ? 'Analyzing All 4 Packaging Panels...' : 'Multi-Panel Analysis Complete!'}
+            {scanError
+              ? 'Inspection Scanning Encountered an Issue'
+              : overallProgress < 100
+              ? 'Analyzing All 4 Packaging Panels...'
+              : 'Multi-Panel Analysis Complete!'}
           </h1>
           <p style={{ color: 'rgba(255,255,255,0.68)', fontSize: '13px', marginTop: '6px', lineHeight: 1.5 }}>
-            Front (PDP) + Back + Regulatory Side + MRP Stamp → Brain MD Verdict
+            {scanError
+              ? 'The AI vision engine could not complete automatic extraction for the uploaded images.'
+              : 'Front (PDP) + Back + Regulatory Side + MRP Stamp → Brain MD Verdict'}
           </p>
 
           {/* Panel Badges */}
@@ -217,116 +236,204 @@ export default function Screen06AIProcessing() {
           </div>
         </div>
 
-        {/* Overall Progress */}
-        <div style={{ marginBottom: '28px' }}>
+        {/* Scan Error Alert Box if Failed */}
+        {scanError ? (
           <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            marginBottom: '8px',
-            color: 'rgba(255,255,255,0.85)',
-            fontSize: '13px',
-            fontWeight: 600,
+            background: 'rgba(239, 68, 68, 0.12)',
+            border: '1px solid rgba(239, 68, 68, 0.35)',
+            borderRadius: '14px',
+            padding: '20px',
+            marginBottom: '24px',
+            textAlign: 'center',
           }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Layers size={14} color="#60A5FA" /> 4-Angle Synchronous Pipeline
-            </span>
-            <span>{overallProgress}%</span>
-          </div>
-          <div style={{
-            height: '8px',
-            background: 'rgba(255,255,255,0.1)',
-            borderRadius: '4px',
-            overflow: 'hidden',
-          }}>
-            <div style={{
-              height: '100%',
-              width: `${overallProgress}%`,
-              background: 'linear-gradient(90deg, #3B82F6 0%, #10B981 100%)',
-              borderRadius: '4px',
-              transition: 'width 0.2s ease-out',
-            }} />
-          </div>
-        </div>
-
-        {/* Steps List */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '11px', marginBottom: '28px' }}>
-          {steps.map((step) => {
-            const isCompleted = step.status === 'completed';
-            const isActive = step.status === 'active';
-
-            return (
-              <div
-                key={step.id}
+            <p style={{ color: '#FCA5A5', fontSize: '13.5px', marginBottom: '16px', lineHeight: 1.6 }}>
+              {scanError}
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => startPipeline()}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '14px',
-                  padding: '13px 16px',
-                  borderRadius: '12px',
-                  background: isActive
-                    ? 'rgba(59, 130, 246, 0.16)'
-                    : isCompleted
-                    ? 'rgba(16, 185, 129, 0.1)'
-                    : 'rgba(255,255,255,0.04)',
-                  border: isActive
-                    ? '1px solid rgba(59, 130, 246, 0.45)'
-                    : isCompleted
-                    ? '1px solid rgba(16, 185, 129, 0.25)'
-                    : '1px solid rgba(255,255,255,0.06)',
-                  transition: 'all 0.3s ease',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  width: '100%',
+                  padding: '12px 18px',
+                  background: '#2563EB',
+                  color: '#FFFFFF',
+                  fontWeight: 600,
+                  fontSize: '14px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(37, 99, 235, 0.35)',
                 }}
               >
-                {/* Status Icon */}
-                <div style={{ flexShrink: 0 }}>
-                  {isCompleted ? (
-                    <div style={{
-                      width: '22px',
-                      height: '22px',
-                      borderRadius: '50%',
-                      background: '#10B981',
+                <RotateCcw size={16} /> Retry AI Vision Extraction
+              </button>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setScreen('multi-angle')}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    padding: '10px 14px',
+                    background: 'rgba(255,255,255,0.08)',
+                    color: 'rgba(255,255,255,0.85)',
+                    fontSize: '12.5px',
+                    fontWeight: 500,
+                    borderRadius: '8px',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Camera size={14} /> Retake Photos
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setScreen('extracted-review')}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    padding: '10px 14px',
+                    background: 'rgba(255,255,255,0.08)',
+                    color: 'rgba(255,255,255,0.85)',
+                    fontSize: '12.5px',
+                    fontWeight: 500,
+                    borderRadius: '8px',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Fill Form Manually <ArrowRight size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Overall Progress */}
+            <div style={{ marginBottom: '28px' }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                marginBottom: '8px',
+                color: 'rgba(255,255,255,0.85)',
+                fontSize: '13px',
+                fontWeight: 600,
+              }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Layers size={14} color="#60A5FA" /> 4-Angle Synchronous Pipeline
+                </span>
+                <span>{overallProgress}%</span>
+              </div>
+              <div style={{
+                height: '8px',
+                background: 'rgba(255,255,255,0.1)',
+                borderRadius: '4px',
+                overflow: 'hidden',
+              }}>
+                <div style={{
+                  height: '100%',
+                  width: `${overallProgress}%`,
+                  background: 'linear-gradient(90deg, #3B82F6 0%, #10B981 100%)',
+                  borderRadius: '4px',
+                  transition: 'width 0.2s ease-out',
+                }} />
+              </div>
+            </div>
+
+            {/* Steps List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '11px', marginBottom: '28px' }}>
+              {steps.map((step) => {
+                const isCompleted = step.status === 'completed';
+                const isActive = step.status === 'active';
+
+                return (
+                  <div
+                    key={step.id}
+                    style={{
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center',
-                    }}>
-                      <Check size={13} color="#FFFFFF" strokeWidth={3} />
+                      gap: '14px',
+                      padding: '13px 16px',
+                      borderRadius: '12px',
+                      background: isActive
+                        ? 'rgba(59, 130, 246, 0.16)'
+                        : isCompleted
+                        ? 'rgba(16, 185, 129, 0.1)'
+                        : 'rgba(255,255,255,0.04)',
+                      border: isActive
+                        ? '1px solid rgba(59, 130, 246, 0.45)'
+                        : isCompleted
+                        ? '1px solid rgba(16, 185, 129, 0.25)'
+                        : '1px solid rgba(255,255,255,0.06)',
+                      transition: 'all 0.3s ease',
+                    }}
+                  >
+                    {/* Status Icon */}
+                    <div style={{ flexShrink: 0 }}>
+                      {isCompleted ? (
+                        <div style={{
+                          width: '22px',
+                          height: '22px',
+                          borderRadius: '50%',
+                          background: '#10B981',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}>
+                          <Check size={13} color="#FFFFFF" strokeWidth={3} />
+                        </div>
+                      ) : isActive ? (
+                        <Loader2 size={22} color="#60A5FA" className="animate-spin" />
+                      ) : (
+                        <Circle size={22} color="rgba(255,255,255,0.2)" />
+                      )}
                     </div>
-                  ) : isActive ? (
-                    <Loader2 size={22} color="#60A5FA" className="animate-spin" />
-                  ) : (
-                    <Circle size={22} color="rgba(255,255,255,0.2)" />
-                  )}
-                </div>
 
-                {/* Step Info */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{
-                    color: isCompleted ? '#D1FAE5' : isActive ? '#FFFFFF' : 'rgba(255,255,255,0.45)',
-                    fontSize: '13px',
-                    fontWeight: isActive || isCompleted ? 600 : 400,
-                  }}>
-                    {step.label}
-                  </div>
-                  {isActive && (
-                    <div style={{
-                      marginTop: '6px',
-                      height: '3px',
-                      background: 'rgba(255,255,255,0.1)',
-                      borderRadius: '2px',
-                      overflow: 'hidden',
-                    }}>
+                    {/* Step Info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{
-                        height: '100%',
-                        width: `${step.progress}%`,
-                        background: '#60A5FA',
-                        transition: 'width 0.15s ease',
-                      }} />
+                        color: isCompleted ? '#D1FAE5' : isActive ? '#FFFFFF' : 'rgba(255,255,255,0.45)',
+                        fontSize: '13px',
+                        fontWeight: isActive || isCompleted ? 600 : 400,
+                      }}>
+                        {step.label}
+                      </div>
+                      {isActive && (
+                        <div style={{
+                          marginTop: '6px',
+                          height: '3px',
+                          background: 'rgba(255,255,255,0.1)',
+                          borderRadius: '2px',
+                          overflow: 'hidden',
+                        }}>
+                          <div style={{
+                            height: '100%',
+                            width: `${step.progress}%`,
+                            background: '#60A5FA',
+                            transition: 'width 0.15s ease',
+                          }} />
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
 
         {/* Technical Callout Badge */}
         <div style={{

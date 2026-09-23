@@ -227,15 +227,59 @@ export const useAppStore = create<AppState>()(
             formData.append('circumferenceMm', String(activeDossier.circumferenceMm));
           }
 
-          const backendBase = (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000').replace(/\/+$/, '');
-          const response = await fetch(`${backendBase}/api/v1/inspection/scan`, {
-            method: 'POST',
-            body: formData,
-          });
+          let response: Response | null = null;
+          let lastError = '';
 
-          if (!response.ok) {
-            const err = await response.json().catch(() => ({ detail: 'Backend scanning failed' }));
-            throw new Error(err.detail || `Backend returned status ${response.status}`);
+          // 1. Try primary backend (Codespaces or custom Python server) if configured
+          const backendBase = (process.env.NEXT_PUBLIC_BACKEND_URL || '').trim().replace(/\/+$/, '');
+          if (backendBase && backendBase !== 'http://localhost:8000') {
+            try {
+              console.log(`[CompliScan Engine] Trying primary backend at ${backendBase}/api/v1/inspection/scan...`);
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 12000);
+              const primaryRes = await fetch(`${backendBase}/api/v1/inspection/scan`, {
+                method: 'POST',
+                body: formData,
+                signal: controller.signal,
+              });
+              clearTimeout(timeoutId);
+              if (primaryRes.ok) {
+                response = primaryRes;
+              } else {
+                console.warn(`[CompliScan Engine] Primary backend returned status ${primaryRes.status}. Falling back to internal engine...`);
+                lastError = `Primary backend returned status ${primaryRes.status}`;
+              }
+            } catch (err: any) {
+              console.warn(`[CompliScan Engine] Primary backend failed (${err.message}). Falling back to internal engine...`);
+              lastError = err.message;
+            }
+          } else if (backendBase === 'http://localhost:8000') {
+            try {
+              const localRes = await fetch('http://localhost:8000/api/v1/inspection/scan', {
+                method: 'POST',
+                body: formData,
+              });
+              if (localRes.ok) {
+                response = localRes;
+              }
+            } catch (err: any) {
+              console.warn(`[CompliScan Engine] Local backend unreachable (${err.message}). Falling back to internal engine...`);
+            }
+          }
+
+          // 2. High-availability fallback: Built-in Next.js Edge/Serverless Inspection Engine
+          if (!response) {
+            console.log('[CompliScan Engine] Invoking built-in Next.js inspection engine at /api/v1/inspection/scan...');
+            const internalRes = await fetch('/api/v1/inspection/scan', {
+              method: 'POST',
+              body: formData,
+            });
+            if (internalRes.ok) {
+              response = internalRes;
+            } else {
+              const err = await internalRes.json().catch(() => ({ detail: 'Inspection scanning failed' }));
+              throw new Error(err.error || err.detail || `Scan failed (Status ${internalRes.status})`);
+            }
           }
 
           const payload = await response.json();

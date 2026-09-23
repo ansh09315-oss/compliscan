@@ -388,9 +388,10 @@ def extract_comprehensive_details(image_bytes_list: List[bytes]) -> Optional[Dic
         return None
 
     candidate_models = [
-        'models/gemini-3.5-flash-lite',
-        'models/gemini-3.6-flash',
+        'models/gemini-3-flash-preview',
         'models/gemini-3.5-flash',
+        'models/gemini-3.5-flash-lite',
+        'models/gemini-3.1-pro-preview',
         'models/gemini-flash-lite-latest',
     ]
 
