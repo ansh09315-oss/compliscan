@@ -1,0 +1,16 @@
+# Backend Docker build exclusions — keeps image slim & fast
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.env
+.env.*
+*.db
+*.sqlite3
+test_*.py
+debug_*.py
+*.jpg
+*.png
+*.jpeg
+.git/

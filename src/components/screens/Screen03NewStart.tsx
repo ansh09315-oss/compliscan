@@ -27,14 +27,16 @@ export default function Screen03NewStart() {
       desc: 'Use device camera to capture packaging labels in real-time with alignment guides',
       color: 'var(--primary-blue)',
       bg: '#DBEAFE',
+      badge: null,
     },
     {
       id: 'upload' as const,
       icon: Upload,
       title: 'Upload Images',
       desc: 'Select existing photos of packaging from device gallery for multi-angle analysis',
-      color: 'var(--compliant-green)',
-      bg: 'var(--compliant-green-bg)',
+      color: '#2563eb',
+      bg: 'rgba(37, 99, 235, 0.1)',
+      badge: null,
     },
     {
       id: 'manual' as const,
@@ -43,6 +45,7 @@ export default function Screen03NewStart() {
       desc: 'Input product declaration data directly for compliance evaluation without images',
       color: '#7C3AED',
       bg: '#EDE9FE',
+      badge: null,
     },
   ];
 
@@ -103,13 +106,31 @@ export default function Screen03NewStart() {
               alignItems: 'center',
               justifyContent: 'center',
               transition: 'transform 0.2s',
+              position: 'relative',
             }}>
-              <mode.icon size={32} color={mode.color} />
+              {mode.id === 'sample' && isLoadingSample ? (
+                <RefreshCw size={32} color={mode.color} className="spin" />
+              ) : (
+                <mode.icon size={32} color={mode.color} />
+              )}
             </div>
-            <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
-              {mode.title}
+            {mode.badge && (
+              <span style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                color: mode.color,
+                background: mode.bg,
+                padding: '3px 10px',
+                borderRadius: '12px',
+                letterSpacing: '0.3px',
+              }}>
+                {mode.badge}
+              </span>
+            )}
+            <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+              {mode.id === 'sample' && isLoadingSample ? 'Loading 4 Photos...' : mode.title}
             </h3>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.5', margin: 0 }}>
               {mode.desc}
             </p>
           </button>

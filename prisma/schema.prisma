@@ -20,6 +20,15 @@ model Inspector {
   createdAt        DateTime            @default(now())
 }
 
+model StatutoryRule {
+  id                 String   @id @default(uuid())
+  ruleCode           String   @unique
+  statutoryReference String
+  description        String
+  severity           String   // CRITICAL, HIGH, MEDIUM, LOW
+  isActive           Boolean  @default(true)
+}
+
 model InspectionDossier {
   id                    String   @id @default(uuid())
   dossierReferenceCode  String   @unique

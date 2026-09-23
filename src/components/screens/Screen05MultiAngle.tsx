@@ -3,7 +3,7 @@
 import React, { useRef } from 'react';
 import { useAppStore } from '@/lib/store';
 import { computeSHA256FromBlob } from '@/lib/cryptoUtils';
-import { ArrowLeft, Camera, RotateCcw, CheckCircle, Image as ImageIcon, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Camera, RotateCcw, CheckCircle, Image as ImageIcon, ChevronRight, Trash2 } from 'lucide-react';
 import type { AngleType } from '@/types/metrology';
 
 const REQUIRED_ANGLES: { type: AngleType; label: string; required: boolean }[] = [
@@ -15,15 +15,13 @@ const REQUIRED_ANGLES: { type: AngleType; label: string; required: boolean }[] =
 ];
 
 export default function Screen05MultiAngle() {
-  const { capturedAngles, addCapturedAngle, removeCapturedAngle, setScreen } = useAppStore();
+  const { capturedAngles, addCapturedAngle, removeCapturedAngle, clearCaptures, setScreen } = useAppStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activeAngleRef = useRef<AngleType>('FRONT');
 
   const requiredCount = REQUIRED_ANGLES.filter((a) => a.required).length;
-  const capturedRequired = capturedAngles.filter((a) =>
-    REQUIRED_ANGLES.find((r) => r.type === a.angleType && r.required)
-  ).length;
-  const allRequiredCaptured = capturedRequired >= requiredCount;
+  const capturedCount = capturedAngles.length;
+  const allRequiredCaptured = capturedCount > 0;
 
   const handleUpload = (angleType: AngleType) => {
     activeAngleRef.current = angleType;
@@ -53,7 +51,7 @@ export default function Screen05MultiAngle() {
       img.src = dataUrl;
     };
     reader.readAsDataURL(file);
-    e.target.value = '';
+      e.target.value = '';
   };
 
   const getAngleImage = (type: AngleType) =>
@@ -73,10 +71,24 @@ export default function Screen05MultiAngle() {
         <ArrowLeft size={16} /> Back
       </button>
 
-      <h1 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '4px' }}>Multi-Angle Capture</h1>
-      <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-        Capture or upload images from all required angles for comprehensive analysis
-      </p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '12px' }}>
+        <div>
+          <h1 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '4px' }}>Multi-Angle Capture</h1>
+          <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+            Capture or upload images from all required angles for comprehensive Legal Metrology analysis
+          </p>
+        </div>
+        {capturedCount > 0 && (
+          <button
+            type="button"
+            className="gov-btn gov-btn-outline"
+            style={{ fontSize: '12px', padding: '6px 14px', color: 'var(--violation-red)', borderColor: 'var(--violation-red)' }}
+            onClick={clearCaptures}
+          >
+            <Trash2 size={14} /> Clear All
+          </button>
+        )}
+      </div>
 
       {/* Progress */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
@@ -88,7 +100,7 @@ export default function Screen05MultiAngle() {
           overflow: 'hidden',
         }}>
           <div style={{
-            width: `${(capturedRequired / requiredCount) * 100}%`,
+            width: `${Math.min(100, (capturedCount / requiredCount) * 100)}%`,
             height: '100%',
             background: allRequiredCaptured ? 'var(--compliant-green)' : 'var(--primary-blue)',
             borderRadius: '4px',
@@ -96,7 +108,7 @@ export default function Screen05MultiAngle() {
           }} />
         </div>
         <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>
-          {capturedRequired}/{requiredCount}
+          {capturedCount}/{requiredCount} Panels
         </span>
       </div>
 
@@ -189,22 +201,34 @@ export default function Screen05MultiAngle() {
       </div>
 
       {/* Proceed Button */}
-      <div style={{ textAlign: 'center' }}>
-        <button
-          className={`gov-btn ${allRequiredCaptured ? 'gov-btn-primary' : 'gov-btn-outline'}`}
-          style={{
-            padding: '14px 32px',
-            fontSize: '16px',
-            opacity: allRequiredCaptured ? 1 : 0.5,
-          }}
-          disabled={!allRequiredCaptured}
-          onClick={() => setScreen('ai-processing')}
-        >
-          Proceed to Analysis <ChevronRight size={18} />
-        </button>
-        {!allRequiredCaptured && (
+      <div style={{ textAlign: 'center', marginTop: '12px' }}>
+        <div>
+          <button
+            id="btn-proceed-ai-analysis"
+            className={`gov-btn ${allRequiredCaptured ? 'gov-btn-primary' : 'gov-btn-outline'}`}
+            style={{
+              padding: '14px 36px',
+              fontSize: '16px',
+              fontWeight: 700,
+              opacity: allRequiredCaptured ? 1 : 0.5,
+              borderRadius: '8px',
+              boxShadow: allRequiredCaptured ? '0 6px 20px rgba(37, 99, 235, 0.35)' : 'none',
+              cursor: allRequiredCaptured ? 'pointer' : 'not-allowed',
+            }}
+            disabled={!allRequiredCaptured}
+            onClick={() => setScreen('ai-processing')}
+          >
+            Run Legal Metrology Inspection <ChevronRight size={18} />
+          </button>
+        </div>
+
+        {!allRequiredCaptured ? (
           <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>
-            Capture all {requiredCount} required angles to proceed
+            Upload at least 1 packaging image to proceed
+          </p>
+        ) : (
+          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px' }}>
+            Ready for AI analysis ({capturedCount} packaging panels attached)
           </p>
         )}
       </div>

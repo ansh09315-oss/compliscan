@@ -141,6 +141,51 @@ export interface InspectionDossier {
   // Relations
   capturedAngles: CapturedAngle[];
   violations: ViolationRecord[];
+
+  // Inspector Field Observations
+  inspectorRemarks?: string;
+
+  // Multi-Image Contextual Stitching (FSSAI, Nutrition, Claims, Ingredients)
+  comprehensiveDetails?: ComprehensiveProductDetails;
+}
+
+export interface ComprehensiveProductDetails {
+  productOverview?: {
+    brandName?: string;
+    productName?: string;
+    variant?: string;
+    dietaryClassification?: string;
+    keyClaims?: string[];
+  };
+  pricingAndBatch?: {
+    netWeight?: string;
+    mrp?: number;
+    usp?: string;
+    mfgDate?: string;
+    useByDate?: string;
+    lotOrBatchNo?: string;
+    barcode?: string;
+  };
+  nutritionalInfoPer100g?: {
+    energyKcal?: number | null;
+    proteinG?: number | null;
+    totalCarbohydrateG?: number | null;
+    totalSugarG?: number | null;
+    addedSugarG?: number | null;
+    totalFatG?: number | null;
+  };
+  ingredientsAndAllergens?: {
+    ingredientsList?: string;
+    allergenAdvice?: string;
+    manufacturingWarning?: string;
+  };
+  manufacturerDetails?: {
+    companyName?: string;
+    completeAddress?: string;
+    fssaiLicenseNo?: string;
+    customerCarePhone?: string;
+    customerCareEmail?: string;
+  };
 }
 
 export interface DashboardKPIs {

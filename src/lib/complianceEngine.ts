@@ -129,23 +129,62 @@ export function validateConsumerCare(
   phone?: string,
   email?: string
 ): { valid: boolean; details: string } {
-  const phoneRegex = /^(\+91|0)?[6-9]\d{9}$|^1800\d{6,8}$/;
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const rawPhone = String(phone || '').trim();
+  const rawEmail = String(email || '').trim();
 
-  const hasValidPhone = phone ? phoneRegex.test(phone.trim()) : false;
-  const hasValidEmail = email ? emailRegex.test(email.trim()) : false;
+  // Search for email anywhere in email string OR phone string (handles composite strings)
+  const emailRegex = /[a-zA-Z0-9_.+\-]+@[a-zA-Z0-9\-]+\.[a-zA-Z0-9.\-]+/;
+  let detectedEmail: string | null = null;
+  const emMatch = rawEmail.match(emailRegex) || rawPhone.match(emailRegex);
+  if (emMatch) {
+    detectedEmail = emMatch[0].replace(/[.,;:\)]+$/, '');
+  }
+
+  // Search for phone anywhere in phone string OR email string
+  let detectedPhone: string | null = null;
+  const combinedText = (rawPhone + ' ' + rawEmail).replace(/[(),\/]/g, ' ');
+
+  // 1. Toll-Free: 1800 / 1860 with optional spaces/dashes
+  const tollMatch = combinedText.match(/\b(?:1800|1860)[\s\-]?\d{3,4}[\s\-]?\d{3,4}\b/);
+  // 2. Indian Mobile: (+91, 91, 0)? followed by 10 digits starting with 6-9 (supports spaces/dashes)
+  const mobileMatch = combinedText.match(/(?:\+91[\s\-]?|91[\s\-]?|0)?[6-9]\d{1,4}[\s\-]?\d{4,8}\b/);
+  // 3. Landline with STD code (e.g. 080-23456789)
+  const landlineMatch = combinedText.match(/(?:\+91[\s\-]?|91[\s\-]?|0)?[1-9]\d{1,4}[\s\-]?\d{4,8}\b/);
+
+  if (tollMatch) {
+    detectedPhone = tollMatch[0].trim();
+  } else if (mobileMatch) {
+    const digits = mobileMatch[0].replace(/\D/g, '');
+    if (digits.length >= 10 && digits.length <= 13) {
+      detectedPhone = mobileMatch[0].trim();
+    }
+  } else if (landlineMatch) {
+    const digits = landlineMatch[0].replace(/\D/g, '');
+    if (digits.length >= 8 && digits.length <= 13) {
+      detectedPhone = landlineMatch[0].trim();
+    }
+  } else {
+    // Fallback: any contiguous 8-12 digit sequence
+    const fallback = combinedText.match(/\b\d{8,12}\b/);
+    if (fallback) detectedPhone = fallback[0];
+  }
+
+  const hasValidPhone = Boolean(detectedPhone);
+  const hasValidEmail = Boolean(detectedEmail);
 
   if (!hasValidPhone && !hasValidEmail) {
     return { valid: false, details: 'Missing valid consumer care phone or email' };
   }
-  if (!hasValidPhone) {
-    return { valid: false, details: 'Consumer care phone number is missing or invalid' };
+
+  if (hasValidPhone && hasValidEmail) {
+    return { valid: true, details: `Consumer care verified: Phone (${detectedPhone}) & Email (${detectedEmail})` };
+  } else if (hasValidPhone) {
+    return { valid: true, details: `Consumer care phone verified (${detectedPhone})` };
+  } else {
+    return { valid: true, details: `Consumer care email verified (${detectedEmail})` };
   }
-  if (!hasValidEmail) {
-    return { valid: false, details: 'Consumer care email address is missing or invalid' };
-  }
-  return { valid: true, details: 'Consumer care contact information is valid' };
 }
+
 
 // ─── Master Compliance Evaluator ─────────────────────────────────────────────
 

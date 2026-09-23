@@ -1,0 +1,51 @@
+# ==============================================================================
+# CompliScan (SIH 26034) - Netlify Configuration
+# Next.js (React 19) Frontend Deployment to Netlify
+# ==============================================================================
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
+  NPM_FLAGS = "--legacy-peer-deps"
+  NEXT_TELEMETRY_DISABLED = "1"
+
+# Official Next.js Runtime plugin for Netlify Serverless & App Router support
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# ------------------------------------------------------------------------------
+# Security & Cross-Origin Resource Sharing (CORS) Headers
+# Enables seamless browser communication with Hugging Face Spaces Backend
+# ------------------------------------------------------------------------------
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+    Access-Control-Allow-Headers = "X-Requested-With, Content-Type, Authorization, Accept, Origin, Cache-Control"
+    Access-Control-Allow-Credentials = "true"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "SAMEORIGIN"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Cache static assets aggressively
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# ------------------------------------------------------------------------------
+# API Reverse Proxy (Optional Convenience)
+# Routes requests from /api/py/* directly to Hugging Face Spaces without CORS
+# Replace placeholder with your real Hugging Face Space URL in production
+# ------------------------------------------------------------------------------
+[[redirects]]
+  from = "/api/py/*"
+  to = "https://YOUR_HF_USERNAME-compliscan-backend.hf.space/api/v1/:splat"
+  status = 200
+  force = true
+  headers = {X-From = "Netlify-CompliScan"}

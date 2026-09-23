@@ -1,31 +1,48 @@
 {
-  "name": "CompliScan AI Dev Container",
-  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-20-bullseye",
+  "name": "CompliScan AI Dev Container (Codespaces)",
+  "image": "mcr.microsoft.com/devcontainers/python:3.10-bookworm",
   "features": {
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    },
     "ghcr.io/devcontainers/features/git:1": {}
+  },
+  "containerEnv": {
+    "PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION": "python",
+    "FLAGS_use_mkldnn": "0",
+    "PYTHONPATH": ".",
+    "PYTHONUNBUFFERED": "1"
+  },
+  "forwardPorts": [8000, 3000],
+  "portsAttributes": {
+    "8000": {
+      "label": "CompliScan FastAPI Backend",
+      "onAutoForward": "notify",
+      "visibility": "public"
+    },
+    "3000": {
+      "label": "CompliScan Next.js Frontend",
+      "onAutoForward": "notify",
+      "visibility": "public"
+    }
   },
   "customizations": {
     "vscode": {
       "settings": {
         "terminal.integrated.defaultProfile.linux": "bash",
         "editor.formatOnSave": true,
-        "editor.defaultFormatter": "esbenp.prettier-vscode",
-        "typescript.tsdk": "node_modules/typescript/lib"
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.analysis.extraPaths": ["./backend"]
       },
       "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
-        "Prisma.prisma",
-        "bradlc.vscode-tailwindcss",
-        "ms-azuretools.vscode-docker",
-        "GitHub.vscode-pull-request-github",
-        "rooveterinaryinc.roo-cline",
-        "coderabbit.coderabbit-ai"
+        "bradlc.vscode-tailwindcss"
       ]
     }
   },
-  "forwardPorts": [3000],
-  "postCreateCommand": "npm install && npx prisma generate",
-  "remoteUser": "node"
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+  "remoteUser": "vscode"
 }

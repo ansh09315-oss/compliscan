@@ -1,0 +1,23 @@
+# Root-level Docker build exclusions
+node_modules/
+.next/
+.git/
+.planning/
+.agents/
+.agent/
+.devcontainer/
+.github/
+.vscode/
+prisma/
+backend/venv/
+backend/__pycache__/
+backend/test_*.py
+backend/debug_*.py
+backend/*.jpg
+backend/*.png
+backend/*.db
+*.tsbuildinfo
+*.sqlite3
+.env
+.env.*
+!.env.example
