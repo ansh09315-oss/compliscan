@@ -108,11 +108,7 @@ export default function Screen03NewStart() {
               transition: 'transform 0.2s',
               position: 'relative',
             }}>
-              {mode.id === 'sample' && isLoadingSample ? (
-                <RefreshCw size={32} color={mode.color} className="spin" />
-              ) : (
-                <mode.icon size={32} color={mode.color} />
-              )}
+              <mode.icon size={32} color={mode.color} />
             </div>
             {mode.badge && (
               <span style={{
@@ -128,7 +124,7 @@ export default function Screen03NewStart() {
               </span>
             )}
             <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-              {mode.id === 'sample' && isLoadingSample ? 'Loading 4 Photos...' : mode.title}
+              {mode.title}
             </h3>
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.5', margin: 0 }}>
               {mode.desc}

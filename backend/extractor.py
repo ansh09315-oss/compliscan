@@ -206,8 +206,6 @@ def parse_statutory_entities(lines: List[str]) -> Dict[str, Any]:
     )
     if mfg_name_match:
         extracted["manufacturerName"] = mfg_name_match.group(1).strip()
-    elif "SPROUTLIFE FOODS" in full_text.upper():
-        extracted["manufacturerName"] = "SPROUTLIFE FOODS PVT. LTD."
 
     # Look for 6-digit postal PIN code and preceding/surrounding address context
     pin_match = re.search(r"(?:PIN|Pin|P\.I\.N\.?)?[:\s]*\b([1-9][0-9]{5})\b", full_text)
@@ -219,7 +217,7 @@ def parse_statutory_entities(lines: List[str]) -> Dict[str, Any]:
                 extracted["manufacturerAddress"] = line.strip()
                 break
         if not extracted["manufacturerAddress"]:
-            extracted["manufacturerAddress"] = f"Industrial Area, PIN - {pin}"
+            extracted["manufacturerAddress"] = f"PIN - {pin}"
 
     # ─────────────────────────────────────────────────────────────────────────
     # 8. FSSAI 14-Digit License Number
@@ -231,16 +229,22 @@ def parse_statutory_entities(lines: List[str]) -> Dict[str, Any]:
         extracted["fssaiLicenseNo"] = fssai_match.group(1).strip()
 
     # ─────────────────────────────────────────────────────────────────────────
-    # 9. Brand Name & Variant
+    # 9. Brand Name & Product Name (Dynamic extraction from prominent typography)
     # ─────────────────────────────────────────────────────────────────────────
-    brand_match = re.search(r"\b(Yoga\s*Bar|YogaBar)\b", full_text, re.IGNORECASE)
-    if brand_match:
-        extracted["brandName"] = "Yoga Bar"
-    
-    if "Muesli" in full_text or "MUESLI" in full_text:
-        extracted["productName"] = "Millet Muesli"
-    if "Nuts & Seeds" in full_text or "NUTS & SEEDS" in full_text:
-        extracted["variant"] = "Nuts & Seeds Crunch"
+    # If not already extracted from early lines, deduce from clean text lines
+    if not extracted.get("brandName"):
+        for line in clean_lines[:4]:
+            words = line.strip().split()
+            if 1 <= len(words) <= 3 and not any(kw in line.upper() for kw in ["NET", "MRP", "EXP", "MFG", "USE", "BATCH", "LOT"]):
+                extracted["brandName"] = line.strip()
+                break
+
+    if not extracted.get("productName"):
+        for line in clean_lines[:6]:
+            words = line.strip().split()
+            if 1 <= len(words) <= 6 and line.strip() != extracted.get("brandName") and not any(kw in line.upper() for kw in ["NET", "MRP", "EXP", "MFG", "USE", "BATCH", "LOT", "PIN"]):
+                extracted["productName"] = line.strip()
+                break
 
     # ─────────────────────────────────────────────────────────────────────────
     # 10. Batch / Lot Number

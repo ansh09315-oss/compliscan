@@ -107,29 +107,29 @@ STRICT_MULTI_IMAGE_PROMPT = """You are a Master Legal Metrology and Food Safety 
 I am providing you with multiple images of the EXACT SAME packaged commodity from different angles (Front, Back, MRP/Batch panel, Regulatory panel).
 
 YOUR TASK:
-Analyze all images SIMULTANEOUSLY. Information is fragmented across these panels. You must cross-reference the images and stitch the fragmented data together to build a complete product profile.
-If a detail (like MRP) is on Image 3, and the Product Name is on Image 1, combine them logically.
-DO NOT hallucinate. If a piece of information is genuinely missing across all images, return `null`.
+Analyze all images SIMULTANEOUSLY. Information is fragmented across these panels. You must cross-reference the images and stitch the fragmented data together to build a complete product profile for the specific item shown in the images.
+Extract whatever brand, product name, net quantity, MRP, dates, and manufacturer details are actually printed on the packaging.
+DO NOT hallucinate or copy examples. If a piece of information is genuinely missing across all images, return `null`.
 
 OUTPUT FORMAT:
 Return ONLY a valid JSON object matching this exact schema. Do not include markdown formatting (like ```json).
 
 {
   "productOverview": {
-    "brandName": "String",
-    "productName": "String",
-    "variant": "String",
-    "dietaryClassification": "Vegetarian/Non-Vegetarian/Vegan based on logo",
-    "keyClaims": ["List of strings, e.g., 'High Fibre', 'No Refined Sugar'"]
+    "brandName": "Exact brand or company name printed on front",
+    "productName": "Exact trade or commercial product name printed on front",
+    "variant": "Flavor or variant name if any, else null",
+    "dietaryClassification": "Vegetarian/Non-Vegetarian/Vegan based on green/brown logo",
+    "keyClaims": ["List of marketing or health claims printed on pack"]
   },
   "pricingAndBatch": {
-    "netWeight": "String with unit (e.g., '450 g')",
-    "mrp": "Numeric float without currency (e.g., 285.00)",
-    "usp": "String (e.g., 'Rs. 0.63/g')",
-    "mfgDate": "String (e.g., '02/01/26')",
-    "useByDate": "String (e.g., '01/10/26')",
-    "lotOrBatchNo": "String",
-    "barcode": "String if visible"
+    "netWeight": "Net quantity with unit as printed (e.g. '100 g', '1 kg', '500 ml')",
+    "mrp": "Numeric MRP float without currency symbols",
+    "usp": "Unit sale price string with unit if printed, else null",
+    "mfgDate": "Manufacturing or packing date as printed, else null",
+    "useByDate": "Expiry or use by date as printed, else null",
+    "lotOrBatchNo": "Batch, Lot, or Code number as printed, else null",
+    "barcode": "Barcode number if visible, else null"
   },
   "nutritionalInfoPer100g": {
     "energyKcal": "Float or null",
@@ -140,16 +140,16 @@ Return ONLY a valid JSON object matching this exact schema. Do not include markd
     "totalFatG": "Float or null"
   },
   "ingredientsAndAllergens": {
-    "ingredientsList": "Full comma-separated string of ingredients",
-    "allergenAdvice": "String",
-    "manufacturingWarning": "String (e.g., facility processes tree nuts)"
+    "ingredientsList": "Full comma-separated string of ingredients printed",
+    "allergenAdvice": "Allergen advice string, else null",
+    "manufacturingWarning": "Facility or cross-contamination warning, else null"
   },
   "manufacturerDetails": {
-    "companyName": "String",
-    "completeAddress": "String",
-    "fssaiLicenseNo": "String (14-digit)",
-    "customerCarePhone": "String",
-    "customerCareEmail": "String"
+    "companyName": "Exact manufacturer, packer, or marketer company name",
+    "completeAddress": "Full physical factory or corporate address with PIN code",
+    "fssaiLicenseNo": "14-digit FSSAI license number if food product, else null",
+    "customerCarePhone": "Helpline phone number if printed, else null",
+    "customerCareEmail": "Consumer care email address if printed, else null"
   }
 }
 """
@@ -388,9 +388,10 @@ def extract_comprehensive_details(image_bytes_list: List[bytes]) -> Optional[Dic
         return None
 
     candidate_models = [
-        'models/gemini-flash-latest',
-        'models/gemini-3.6-flash',
         'models/gemini-3.5-flash-lite',
+        'models/gemini-3.6-flash',
+        'models/gemini-3.5-flash',
+        'models/gemini-flash-lite-latest',
     ]
 
     # ── PASS 1: Global Multi-Image Contextual Synthesis ────────────────────────
@@ -432,21 +433,20 @@ def extract_comprehensive_details(image_bytes_list: List[bytes]) -> Optional[Dic
         print(f"[VLM Status] Missing declarations on packaging: {missing_fields}", flush=True)
 
         # ── PARALLEL targeted extraction for all missing field categories ──────
-        # Instead of 3 sequential Gemini calls (~90-270s), run them all in parallel (~30-90s total)
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
         def _query_pricing(model, imgs, flat):
             """Sub-loop A: Missing pricing / batch / dates"""
             targeted_prompt = """You are an expert Legal Metrology officer inspecting the packaging stamps.
 Inspect the provided packaging panels (specifically looking for the white inkjet box or stamp).
-Extract ONLY these fields into a JSON object:
+Extract ONLY what is actually printed on this commodity into a JSON object:
 {
-  "netWeight": "e.g. 450 g",
-  "mrp": "e.g. 285.00",
-  "usp": "e.g. Rs. 0.63/g",
-  "mfgDate": "e.g. 02/01/26",
-  "useByDate": "e.g. 01/10/26",
-  "lotOrBatchNo": "e.g. MB020126H/M103:26"
+  "netWeight": "Net quantity with unit (e.g. '100 g', '500 ml')",
+  "mrp": "Maximum retail price as numeric float",
+  "usp": "Unit sale price string with unit if printed, else null",
+  "mfgDate": "Manufacturing date string if printed, else null",
+  "useByDate": "Expiry date string if printed, else null",
+  "lotOrBatchNo": "Batch or Lot code if printed, else null"
 }
 Return only JSON."""
             try:
@@ -460,14 +460,14 @@ Return only JSON."""
 
         def _query_regulatory(model, imgs, flat):
             """Sub-loop B: Missing manufacturer / FSSAI / consumer care"""
-            targeted_reg_prompt = """You are a Food Safety (FSSAI) Inspector inspecting product regulatory panels.
-Extract ONLY these statutory details from the provided packaging panels into a JSON object:
+            targeted_reg_prompt = """You are a Regulatory Inspector inspecting product regulatory panels.
+Extract ONLY what is actually printed on this commodity into a JSON object:
 {
-  "companyName": "Exact manufacturer company name (e.g. SPROUTLIFE FOODS PVT. LTD.)",
-  "completeAddress": "Full factory/marketed address with PIN code",
-  "fssaiLicenseNo": "14-digit FSSAI number (e.g. 11222999000656)",
-  "customerCarePhone": "Helpline phone number (e.g. +91 96060 30616)",
-  "customerCareEmail": "Support email address (e.g. hello@yogabars.in)"
+  "companyName": "Exact manufacturer, packer, or marketer company name",
+  "completeAddress": "Full factory or corporate address with PIN code",
+  "fssaiLicenseNo": "14-digit FSSAI number if printed, else null",
+  "customerCarePhone": "Helpline phone number if printed, else null",
+  "customerCareEmail": "Support email address if printed, else null"
 }
 Return only JSON."""
             try:
@@ -482,13 +482,13 @@ Return only JSON."""
         def _query_pdp(model, imgs, flat):
             """Sub-loop C: Missing Brand / Product Name"""
             targeted_pdp_prompt = """Extract the exact Brand Name and Product Name from this Front Principal Display Panel (PDP).
-Return JSON:
+Extract ONLY what is actually printed on this commodity:
 {
-  "brandName": "e.g. Yoga Bar",
-  "productName": "e.g. Millet Muesli",
-  "variant": "e.g. Nuts & Seeds Crunch",
-  "dietaryClassification": "Vegetarian",
-  "keyClaims": ["No Refined Sugar", "High Fibre"]
+  "brandName": "Brand or company name",
+  "productName": "Commercial product name",
+  "variant": "Flavor or variant name if any, else null",
+  "dietaryClassification": "Vegetarian/Non-Vegetarian/Vegan",
+  "keyClaims": []
 }
 Return only JSON."""
             try:

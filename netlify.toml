@@ -11,6 +11,7 @@
   NODE_VERSION = "20"
   NPM_FLAGS = "--legacy-peer-deps"
   NEXT_TELEMETRY_DISABLED = "1"
+  NETLIFY_DISABLE_DRAWER = "true"
 
 # Official Next.js Runtime plugin for Netlify Serverless & App Router support
 [[plugins]]

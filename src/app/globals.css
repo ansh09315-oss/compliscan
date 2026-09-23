@@ -51,6 +51,24 @@ html, body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ─── Netlify Watermark & Drawer Suppression ─────────────────────────── */
+[data-netlify-drawer],
+#netlify-drawer,
+.netlify-badge,
+iframe#netlify-drawer,
+div[id*="netlify-feedback"],
+.netlify-feedback-drawer {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  position: absolute !important;
+  left: -9999px !important;
+  z-index: -9999 !important;
+}
+
 /* ─── Scrollbar Styling ───────────────────────────────────────────────────── */
 
 ::-webkit-scrollbar {
