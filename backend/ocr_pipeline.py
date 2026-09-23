@@ -40,9 +40,20 @@ class MultiPassPackagingOCR:
     def _init_paddle(self):
         try:
             from paddleocr import PaddleOCR
-            # Initialize PaddleOCR engine (use_angle_cls=False, enable_mkldnn=False to prevent ONEDNN layout crash on CPU)
-            self.paddle_engine = PaddleOCR(use_angle_cls=False, lang='en', show_log=False, enable_mkldnn=False)
-            logger.info("PaddleOCR engine initialized successfully.")
+            # Initialize PaddleOCR engine with robust parameter fallback across versions
+            for kwargs in [
+                {"use_angle_cls": False, "lang": "en", "enable_mkldnn": False},
+                {"use_angle_cls": False, "lang": "en"},
+                {"lang": "en"}
+            ]:
+                try:
+                    self.paddle_engine = PaddleOCR(**kwargs)
+                    logger.info("PaddleOCR engine initialized successfully.")
+                    break
+                except (TypeError, ValueError) as init_err:
+                    continue
+            if self.paddle_engine is None:
+                raise RuntimeError("PaddleOCR could not initialize with any parameter combination.")
         except Exception as e:
             logger.error(f"PaddleOCR failed to initialize: {e}. Fallback OCR engines will be checked.")
             self.paddle_engine = None
