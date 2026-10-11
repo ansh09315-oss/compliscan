@@ -5,6 +5,7 @@ import { useAppStore } from '@/lib/store';
 import { Menu, Shield, WifiOff } from 'lucide-react';
 
 // Screen imports
+import LandingPage from '@/components/LandingPage';
 import Screen01Login from '@/components/screens/Screen01Login';
 import Screen02Dashboard from '@/components/screens/Screen02Dashboard';
 import Screen03NewStart from '@/components/screens/Screen03NewStart';
@@ -20,8 +21,11 @@ import Screen12Analytics from '@/components/screens/Screen12Analytics';
 import Screen13OfflineSync from '@/components/screens/Screen13OfflineSync';
 import Screen14Regulations from '@/components/screens/Screen14Regulations';
 import Screen15SideDrawer from '@/components/screens/Screen15SideDrawer';
+import Screen16AdminPortal from '@/components/screens/Screen16AdminPortal';
+import ComplianceMetadataFooter from '@/components/ComplianceMetadataFooter';
 
-const screenComponents: Record<string, React.ComponentType> = {
+const screenComponents: Record<string, React.ComponentType<any>> = {
+  'landing': LandingPage,
   'login': Screen01Login,
   'dashboard': Screen02Dashboard,
   'new-start': Screen03NewStart,
@@ -36,21 +40,36 @@ const screenComponents: Record<string, React.ComponentType> = {
   'analytics': Screen12Analytics,
   'offline-sync': Screen13OfflineSync,
   'regulations': Screen14Regulations,
+  'admin-portal': Screen16AdminPortal,
 };
 
 export default function HomePage() {
-  const { currentScreen, isAuthenticated, isOfflineMode, toggleDrawer, currentInspector } = useAppStore();
+  const { currentScreen, isAuthenticated, isOfflineMode, toggleDrawer, currentInspector, login, setScreen } = useAppStore();
 
-  const CurrentScreen = screenComponents[currentScreen] || Screen01Login;
-  const showNavbar = isAuthenticated && currentScreen !== 'login' && currentScreen !== 'camera-hud' && currentScreen !== 'ai-processing';
+  React.useEffect(() => {
+    // Validate session cookie with server on initial mount without touching localStorage
+    if (!isOfflineMode && typeof window !== 'undefined') {
+      fetch('/api/auth', { credentials: 'include' })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.authenticated && data.inspector) {
+            login(data.inspector);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isOfflineMode, login]);
+
+  const CurrentScreen = screenComponents[currentScreen] || LandingPage;
+  const showNavbar = isAuthenticated && currentScreen !== 'login' && currentScreen !== 'landing' && currentScreen !== 'camera-hud' && currentScreen !== 'ai-processing';
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* Offline Banner */}
-      {isOfflineMode && isAuthenticated && (
+      {isOfflineMode && isAuthenticated && currentScreen !== 'landing' && (
         <div className="offline-banner">
           <WifiOff size={14} style={{ display: 'inline', verticalAlign: '-2px', marginRight: '6px' }} />
-          Offline Mode — Data will be stored locally and synced when reconnected
+          Offline Mode: Data stored locally; will synchronize when connection is restored
         </div>
       )}
 
@@ -103,9 +122,16 @@ export default function HomePage() {
       )}
 
       {/* Screen Content */}
-      <main style={{ flex: 1, background: currentScreen === 'login' || currentScreen === 'ai-processing' || currentScreen === 'camera-hud' ? 'transparent' : 'var(--slate-bg)' }}>
-        <CurrentScreen />
+      <main style={{ flex: 1, background: currentScreen === 'login' || currentScreen === 'ai-processing' || currentScreen === 'camera-hud' || currentScreen === 'landing' ? 'transparent' : 'var(--slate-bg)' }}>
+        {currentScreen === 'landing' ? (
+          <LandingPage onLogin={() => setScreen(isAuthenticated ? 'dashboard' : 'login')} />
+        ) : (
+          <CurrentScreen />
+        )}
       </main>
+
+      {/* Compliance Metadata Footer */}
+      {currentScreen !== 'camera-hud' && currentScreen !== 'landing' && <ComplianceMetadataFooter />}
 
       {/* Side Drawer */}
       <Screen15SideDrawer />

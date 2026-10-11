@@ -31,6 +31,7 @@ fi
 
 echo "⚙️ [4/4] Setting execution permissions for helper scripts..."
 chmod +x scripts/*.sh 2>/dev/null || true
+chmod +x scripts/*.py 2>/dev/null || true
 chmod +x start_backend.sh 2>/dev/null || true
 
 echo "✅ CompliScan GitHub Codespace is fully provisioned and ready!"

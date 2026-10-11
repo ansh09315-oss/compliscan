@@ -59,13 +59,37 @@ app = FastAPI(
     description="Split-Path Tri-Core Architecture: 4-Angle Ingestion (Front, Back, Regulatory, MRP) -> VLM + OCR -> Brain MD"
 )
 
+# ── Security Configuration: CORS & Security Headers ──────────────────────────
+cors_env = os.getenv("ALLOWED_ORIGINS", "")
+if cors_env.strip():
+    allowed_origins = [o.strip() for o in cors_env.split(",") if o.strip()]
+else:
+    allowed_origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://localhost:3000",
+    ]
+
+# Credentials can only be enabled if origins is not wildcard '*'
+allow_credentials = False if "*" in allowed_origins else True
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=allowed_origins,
+    allow_origin_regex=r"^https:\/\/.*(\.app\.github\.dev|\.netlify\.app|\.hf\.space)$",
+    allow_credentials=allow_credentials,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
 )
+
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
 
 
 @app.get("/")
@@ -170,7 +194,11 @@ async def scan_product_dossier(
         )
 
         # ── Parallel Execution: Path A (Multi-Image VLM) and Path B (Enhanced OCR) ────
-        path_a_task = asyncio.to_thread(extract_comprehensive_details, image_bytes_list)
+        if asyncio.iscoroutinefunction(extract_comprehensive_details):
+            path_a_task = extract_comprehensive_details(image_bytes_list)
+        else:
+            path_a_task = asyncio.to_thread(extract_comprehensive_details, image_bytes_list)
+
         path_b_task = asyncio.to_thread(
             extract_with_ocr_multi_angle,
             angle_images,
@@ -271,7 +299,10 @@ async def scan_product_dossier(
         raise
     except Exception as e:
         logger.error(f"Error executing 4-angle inspection scan: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail="An unexpected error occurred during multi-panel inspection processing."
+        )
 
 
 @app.post("/api/v1/inspection/save-dossier")
@@ -303,7 +334,7 @@ async def save_or_update_dossier(payload: dict):
         }
     except Exception as e:
         logger.error(f"Error updating dossier in Supabase: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to persist inspection dossier.")
 
 
 @app.get("/api/v1/inspection/supabase-dossiers")
@@ -311,7 +342,7 @@ async def get_supabase_dossiers(limit: int = 25):
     """
     Retrieves stored dossiers from Supabase database.
     """
-    records = fetch_dossiers_from_supabase(limit=limit)
+    records = fetch_dossiers_from_supabase(limit=min(limit, 100))
     return {"success": True, "count": len(records), "dossiers": records}
 
 
@@ -320,9 +351,9 @@ async def log_test_execution(payload: dict):
     """
     Endpoint for automated test suites to record test runs in Supabase.
     """
-    test_name = payload.get("testName", "UNKNOWN_TEST")
-    test_type = payload.get("testType", "UNIT")
-    status = payload.get("status", "PASSED")
+    test_name = str(payload.get("testName", "UNKNOWN_TEST"))[:100]
+    test_type = str(payload.get("testType", "UNIT"))[:50]
+    status = "PASSED" if payload.get("status") == "PASSED" else "FAILED"
     details = payload.get("details", {})
 
     success = log_test_run_to_supabase(test_name, test_type, status, details)
@@ -356,9 +387,12 @@ async def export_judicial_pdf(dossier_payload: dict):
         )
     except Exception as e:
         logger.error(f"Error generating PDF dossier: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to compile Section 63 BSA PDF report.")
 
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    debug_mode = os.getenv("DEBUG", "false").lower() == "true"
+    port = int(os.getenv("PORT", "8000"))
+    host = os.getenv("HOST", "0.0.0.0")
+    uvicorn.run("backend.main:app" if debug_mode else app, host=host, port=port, reload=debug_mode)

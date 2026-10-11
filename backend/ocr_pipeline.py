@@ -59,8 +59,8 @@ class MultiPassPackagingOCR:
 
         orig_h, orig_w = frame.shape[:2]
 
-        # Dynamic Downsampling: scale so max dimension <= 800px
-        max_dim = 800.0
+        # Dynamic Downsampling: scale so max dimension <= 600px for optimal CPU throughput
+        max_dim = 600.0
         scale = 1.0
         if max(orig_h, orig_w) > max_dim:
             scale = max_dim / float(max(orig_h, orig_w))

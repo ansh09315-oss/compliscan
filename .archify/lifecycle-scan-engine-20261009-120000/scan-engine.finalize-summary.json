@@ -1,0 +1,183 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "lifecycle",
+  "quality": "showcase",
+  "specification": {
+    "path": "C:\\Users\\ansh0\\OneDrive\\Desktop\\compliscan\\.archify\\lifecycle-scan-engine-20261009-120000\\candidate.json",
+    "sha256": "32a3265381a0830b102e8b9fd1a6e8034f2c7d1fe4c0e1cc0697e13c49b71cdf",
+    "bytes": 4476
+  },
+  "artifact": {
+    "path": "C:\\Users\\ansh0\\OneDrive\\Desktop\\compliscan\\.archify\\lifecycle-scan-engine-20261009-120000\\scan-engine.html",
+    "sha256": "21c9c683edc4100bf321742caefd962217ba0fdec2762bd1b9bdc3d4588f7680",
+    "bytes": 774738
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "C:\\Users\\ansh0\\OneDrive\\Desktop\\compliscan\\.archify\\lifecycle-scan-engine-20261009-120000\\scan-engine.finalize.json",
+    "summaryReceipt": "C:\\Users\\ansh0\\OneDrive\\Desktop\\compliscan\\.archify\\lifecycle-scan-engine-20261009-120000\\scan-engine.finalize-summary.json",
+    "browserCheckReceipt": "C:\\Users\\ansh0\\OneDrive\\Desktop\\compliscan\\.archify\\lifecycle-scan-engine-20261009-120000\\scan-engine.browser-check.json"
+  },
+  "update": {
+    "status": "unavailable",
+    "installedVersion": null,
+    "availableVersion": null,
+    "releaseNotes": null,
+    "checkedAt": null,
+    "source": null,
+    "noticeRequired": false,
+    "noticeText": null,
+    "reason": "timeout"
+  },
+  "visualReview": "not-requested",
+  "durationMs": 59742,
+  "visualReviewRecommendation": {
+    "action": "inspect-route-readability",
+    "signals": {
+      "resolvedCrossovers": 5,
+      "routesOverSuggestedBends": 1
+    },
+    "reason": "Automated gates passed, but crossings or detours still need perceptual review before claiming visual quality.",
+    "affectedRoutes": {
+      "crossings": [
+        {
+          "left": {
+            "from": "validate",
+            "to": "failed_val",
+            "label": "Violates Limits",
+            "collectionIndex": 2,
+            "artifactIndex": 3
+          },
+          "right": {
+            "from": "failed_vlm",
+            "to": "init",
+            "label": "Load Demo &amp; Retry",
+            "collectionIndex": 14,
+            "artifactIndex": 15
+          },
+          "point": [
+            334,
+            388
+          ]
+        },
+        {
+          "left": {
+            "from": "validate",
+            "to": "failed_val",
+            "label": "Violates Limits",
+            "collectionIndex": 2,
+            "artifactIndex": 3
+          },
+          "right": {
+            "from": "vlm_primary",
+            "to": "cancelled",
+            "label": "Unmount",
+            "collectionIndex": 15,
+            "artifactIndex": 16
+          },
+          "point": [
+            334,
+            168
+          ]
+        },
+        {
+          "left": {
+            "from": "backoff",
+            "to": "fallback",
+            "label": "Retry Fails",
+            "collectionIndex": 7,
+            "artifactIndex": 8
+          },
+          "right": {
+            "from": "vlm_primary",
+            "to": "failed_vlm",
+            "label": "Error &amp; &lt;3 panels",
+            "collectionIndex": 8,
+            "artifactIndex": 9
+          },
+          "point": [
+            655,
+            272
+          ]
+        },
+        {
+          "left": {
+            "from": "failed_val",
+            "to": "init",
+            "label": "Load Demo &amp; Retry",
+            "collectionIndex": 13,
+            "artifactIndex": 14
+          },
+          "right": {
+            "from": "vlm_primary",
+            "to": "cancelled",
+            "label": "Unmount",
+            "collectionIndex": 15,
+            "artifactIndex": 16
+          },
+          "point": [
+            319,
+            168
+          ]
+        },
+        {
+          "left": {
+            "from": "failed_vlm",
+            "to": "init",
+            "label": "Load Demo &amp; Retry",
+            "collectionIndex": 14,
+            "artifactIndex": 15
+          },
+          "right": {
+            "from": "vlm_primary",
+            "to": "cancelled",
+            "label": "Unmount",
+            "collectionIndex": 15,
+            "artifactIndex": 16
+          },
+          "point": [
+            145,
+            168
+          ]
+        }
+      ],
+      "detours": [
+        {
+          "relationship": {
+            "from": "vlm_primary",
+            "to": "failed_vlm",
+            "label": "Error &amp; &lt;3 panels",
+            "collectionIndex": 8,
+            "artifactIndex": 9
+          },
+          "bends": 4,
+          "stretch": 1
+        }
+      ],
+      "truncated": false
+    },
+    "hints": [
+      "validate → failed_val crosses failed_vlm → init: move the node of whichever is a branch, return, or second entrance to the other side of the main path, so that relationship runs through an empty corridor.",
+      "validate → failed_val crosses vlm_primary → cancelled: move the node of whichever is a branch, return, or second entrance to the other side of the main path, so that relationship runs through an empty corridor.",
+      "backoff → fallback crosses vlm_primary → failed_vlm: move the node of whichever is a branch, return, or second entrance to the other side of the main path, so that relationship runs through an empty corridor.",
+      "failed_val → init crosses vlm_primary → cancelled: move the node of whichever is a branch, return, or second entrance to the other side of the main path, so that relationship runs through an empty corridor.",
+      "failed_vlm → init crosses vlm_primary → cancelled: move the node of whichever is a branch, return, or second entrance to the other side of the main path, so that relationship runs through an empty corridor.",
+      "vlm_primary → failed_vlm needs 4 bends: move node vlm_primary or failed_vlm so they share a row or column with matching centers, or sit diagonally with a clear corner."
+    ],
+    "repair": "Trace these relationships at the desktop viewport. For Architecture, use references/architecture-layout-repair.md: reflow a blocked main path or tangled connected scene, and repair an isolated defect locally only when the surrounding composition is accepted. Preserve all semantic content and user-fixed geometry. Rerun finalize once after the edit."
+  }
+}

@@ -13,6 +13,9 @@ model Inspector {
   badgeNumber      String              @unique
   fullName         String
   email            String              @unique
+  passwordHash     String?
+  salt             String?
+  role             String              @default("INSPECTOR") // ADMIN, INSPECTOR, SUPERVISOR
   assignedDistrict String
   stateTerritory   String              @default("Delhi NCT")
   publicKey        String              @default("RSA-2048-GOV-SIMULATED-KEY")

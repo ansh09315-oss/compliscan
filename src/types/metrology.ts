@@ -39,6 +39,7 @@ export interface Inspector {
   badgeNumber: string;
   fullName: string;
   email: string;
+  role?: 'ADMIN' | 'INSPECTOR' | 'SUPERVISOR';
   assignedDistrict: string;
   stateTerritory: string;
   publicKey: string;
@@ -206,6 +207,7 @@ export interface OfflineQueueItem {
 // ─── Screen State ────────────────────────────────────────────────────────────
 
 export type ScreenId =
+  | 'landing'
   | 'login'
   | 'dashboard'
   | 'new-start'
@@ -220,6 +222,7 @@ export type ScreenId =
   | 'analytics'
   | 'offline-sync'
   | 'regulations'
+  | 'admin-portal'
   | 'side-drawer';
 
 export type CaptureMode = 'camera' | 'upload' | 'manual';

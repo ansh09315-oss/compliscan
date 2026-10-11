@@ -15,16 +15,29 @@ import type {
   ProcessingStep,
   DashboardKPIs,
 } from '@/types/metrology';
-import { getDeviceHardwareId } from '@/lib/cryptoUtils';
+import { getDeviceHardwareId, computeSHA256FromBlob } from '@/lib/cryptoUtils';
 import { saveDossierToSupabase } from '@/lib/supabase';
 
-// Self-healing check: purge legacy oversized base64 store data from localStorage if present
+// Self-healing check: purge any legacy tokens and oversized base64 store data from localStorage
 if (typeof window !== 'undefined') {
   try {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('token');
+    localStorage.removeItem('compliscan_token');
+    localStorage.removeItem('supabase.auth.token');
     const raw = localStorage.getItem('compliscan-storage');
-    if (raw && (raw.includes('data:image') || raw.length > 300000)) {
-      console.info('[CompliScan] Detected legacy oversized store data. Sanitizing...');
-      localStorage.removeItem('compliscan-storage');
+    if (raw) {
+      if (raw.includes('data:image') || raw.length > 300000) {
+        console.info('[CompliScan] Detected legacy oversized store data. Sanitizing...');
+        localStorage.removeItem('compliscan-storage');
+      } else {
+        const parsed = JSON.parse(raw);
+        if (parsed?.state?.authToken || parsed?.state?.token) {
+          delete parsed.state.authToken;
+          delete parsed.state.token;
+          localStorage.setItem('compliscan-storage', JSON.stringify(parsed));
+        }
+      }
     }
   } catch (e) {
     // ignore
@@ -42,7 +55,7 @@ interface AppState {
   goBack: () => void;
   toggleDrawer: () => void;
 
-  // Auth
+  // Auth (Session tokens stored strictly in httpOnly cookies, NOT in localStorage)
   isAuthenticated: boolean;
   isOfflineMode: boolean;
   currentInspector: Inspector | null;
@@ -57,6 +70,7 @@ interface AppState {
   addCapturedAngle: (angle: CapturedAngle) => void;
   removeCapturedAngle: (angleType: string) => void;
   clearCaptures: () => void;
+  loadDemoPackaging: () => Promise<CapturedAngle[]>;
 
   // Processing & Pipeline
   processingSteps: ProcessingStep[];
@@ -105,6 +119,7 @@ const DEFAULT_INSPECTOR: Inspector = {
   badgeNumber: '1045',
   fullName: 'Rajesh Kumar Sharma',
   email: 'rk.sharma@legalmetrology.gov.in',
+  role: 'INSPECTOR',
   assignedDistrict: 'Central Delhi',
   stateTerritory: 'Delhi NCT',
   publicKey: 'RSA-2048-GOV-SIMULATED-KEY',
@@ -118,7 +133,7 @@ export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
       // Navigation
-      currentScreen: 'login',
+      currentScreen: 'landing',
       previousScreen: null,
       drawerOpen: false,
       setScreen: (screen) =>
@@ -144,13 +159,18 @@ export const useAppStore = create<AppState>()(
           currentInspector: inspector,
           currentScreen: 'dashboard',
         }),
-      logout: () =>
+      logout: () => {
+        // Asynchronously expire server-side httpOnly cookie
+        if (typeof window !== 'undefined') {
+          fetch('/api/auth', { method: 'DELETE', credentials: 'include' }).catch(() => {});
+        }
         set({
           isAuthenticated: false,
           currentInspector: null,
-          currentScreen: 'login',
+          currentScreen: 'landing',
           drawerOpen: false,
-        }),
+        });
+      },
       setOfflineMode: (offline) => set({ isOfflineMode: offline }),
 
       // Capture
@@ -169,6 +189,40 @@ export const useAppStore = create<AppState>()(
           capturedAngles: state.capturedAngles.filter((a) => a.angleType !== angleType),
         })),
       clearCaptures: () => set({ capturedAngles: [] }),
+
+      loadDemoPackaging: async () => {
+        const panels: { type: any; path: string }[] = [
+          { type: 'FRONT', path: '/samples/yogabar/front.jpg' },
+          { type: 'BACK', path: '/samples/yogabar/back.jpg' },
+          { type: 'REGULATORY_SIDE', path: '/samples/yogabar/regulatory.jpg' },
+          { type: 'MRP_BATCH', path: '/samples/yogabar/mrp_batch.jpg' },
+        ];
+        const loaded: CapturedAngle[] = [];
+        for (const p of panels) {
+          try {
+            const res = await fetch(p.path);
+            if (!res.ok) continue;
+            const blob = await res.blob();
+            const hash = await computeSHA256FromBlob(blob);
+            const dataUrl = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.readAsDataURL(blob);
+            });
+            loaded.push({
+              angleType: p.type,
+              imageDataUrl: dataUrl,
+              sha256Hash: hash,
+              opticalWidth: 1200,
+              opticalHeight: 1600,
+            });
+          } catch (err) {
+            console.error(`Failed to load demo panel ${p.type}:`, err);
+          }
+        }
+        set({ capturedAngles: loaded, captureMode: 'upload' });
+        return loaded;
+      },
 
       // Processing
       processingSteps: [],
@@ -204,13 +258,21 @@ export const useAppStore = create<AppState>()(
             }
 
             // If none of standard keys matched, append first key as file
-            if (!formData.has('files') && !formData.has('file')) {
+            if (!formData.has('files') && !formData.has('file') && !formData.has('front_image')) {
               const keys = Object.keys(map);
               if (keys.length > 0 && map[keys[0]]) {
                 formData.append('files', map[keys[0]], 'product_scan.jpg');
                 formData.append('file', map[keys[0]], 'product_scan.jpg');
               }
             }
+          }
+
+          // Pre-flight validation: Ensure at least one image exists in payload
+          if (!formData.has('files') && !formData.has('file') && !formData.has('front_image')) {
+            return {
+              success: false,
+              error: 'No packaging images uploaded. Please attach at least 1 packaging panel image or load the demo sample.',
+            };
           }
 
           const activeDossier = get().activeDossier;
@@ -230,13 +292,13 @@ export const useAppStore = create<AppState>()(
           let response: Response | null = null;
           let lastError = '';
 
-          // 1. Try primary backend (Codespaces or custom Python server) if configured
-          const backendBase = (process.env.NEXT_PUBLIC_BACKEND_URL || '').trim().replace(/\/+$/, '');
-          if (backendBase && backendBase !== 'http://localhost:8000') {
+          // 1. Try local FastAPI microservice first if reachable
+          const backendBase = (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000').trim().replace(/\/+$/, '');
+          if (backendBase) {
             try {
               console.log(`[CompliScan Engine] Trying primary backend at ${backendBase}/api/v1/inspection/scan...`);
               const controller = new AbortController();
-              const timeoutId = setTimeout(() => controller.abort(), 12000);
+              const timeoutId = setTimeout(() => controller.abort(), 20000);
               const primaryRes = await fetch(`${backendBase}/api/v1/inspection/scan`, {
                 method: 'POST',
                 body: formData,
@@ -250,20 +312,8 @@ export const useAppStore = create<AppState>()(
                 lastError = `Primary backend returned status ${primaryRes.status}`;
               }
             } catch (err: any) {
-              console.warn(`[CompliScan Engine] Primary backend failed (${err.message}). Falling back to internal engine...`);
+              console.warn(`[CompliScan Engine] Primary backend failed/timed out (${err.message}). Falling back to internal engine...`);
               lastError = err.message;
-            }
-          } else if (backendBase === 'http://localhost:8000') {
-            try {
-              const localRes = await fetch('http://localhost:8000/api/v1/inspection/scan', {
-                method: 'POST',
-                body: formData,
-              });
-              if (localRes.ok) {
-                response = localRes;
-              }
-            } catch (err: any) {
-              console.warn(`[CompliScan Engine] Local backend unreachable (${err.message}). Falling back to internal engine...`);
             }
           }
 

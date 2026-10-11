@@ -3,15 +3,16 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useAppStore } from '@/lib/store';
 import { computeSHA256FromBlob } from '@/lib/cryptoUtils';
-import { ArrowLeft, Zap, ZapOff, Camera as CameraIcon, CheckCircle, Sun, Focus, Smartphone } from 'lucide-react';
+import { ArrowLeft, Zap, ZapOff, Camera as CameraIcon, CheckCircle, Sun, Focus, Smartphone, Sparkles, Upload } from 'lucide-react';
 
 export default function Screen04CameraHUD() {
-  const { setScreen, addCapturedAngle } = useAppStore();
+  const { setScreen, addCapturedAngle, loadDemoPackaging } = useAppStore();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [flashOn, setFlashOn] = useState(false);
   const [isCaptured, setIsCaptured] = useState(false);
+  const [cameraError, setCameraError] = useState(false);
   const [quality, setQuality] = useState({ lighting: true, stable: true, focus: true });
 
   useEffect(() => {
@@ -26,12 +27,13 @@ export default function Screen04CameraHUD() {
         video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
       });
       setStream(mediaStream);
+      setCameraError(false);
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
       }
     } catch {
-      // Camera not available — fallback to upload
-      console.warn('Camera not available, using fallback');
+      console.warn('Camera not available, presenting upload/demo fallback');
+      setCameraError(true);
     }
   };
 
@@ -147,6 +149,71 @@ export default function Screen04CameraHUD() {
           Align product label within frame
         </div>
       </div>
+
+      {/* Camera Unavailable Modal */}
+      {cameraError && (
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          background: 'rgba(11, 37, 69, 0.95)',
+          border: '1px solid rgba(59, 130, 246, 0.4)',
+          borderRadius: '16px',
+          padding: '28px 24px',
+          textAlign: 'center',
+          maxWidth: '420px',
+          width: '90%',
+          zIndex: 50,
+          boxShadow: '0 12px 36px rgba(0,0,0,0.6)',
+        }}>
+          <CameraIcon size={40} color="#60A5FA" style={{ margin: '0 auto 12px' }} />
+          <h2 style={{ color: '#fff', fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>
+            Camera Stream Unavailable
+          </h2>
+          <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '13px', lineHeight: 1.5, marginBottom: '20px' }}>
+            Webcam access is restricted or unsupported in this browser environment. You can load the official 4-panel test sample or upload images directly.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <button
+              className="gov-btn gov-btn-primary"
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                padding: '12px',
+                fontSize: '14px',
+                fontWeight: 600,
+              }}
+              onClick={async () => {
+                await loadDemoPackaging();
+                setScreen('ai-processing');
+              }}
+            >
+              <Sparkles size={16} /> Load 4-Panel Demo Sample & Inspect
+            </button>
+            <button
+              className="gov-btn gov-btn-outline"
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                padding: '10px',
+                fontSize: '13px',
+                borderColor: 'rgba(255,255,255,0.2)',
+                color: '#fff',
+              }}
+              onClick={() => setScreen('multi-angle')}
+            >
+              <Upload size={14} /> Upload Images from Device
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Top Bar */}
       <div style={{

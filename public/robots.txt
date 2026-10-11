@@ -1,0 +1,27 @@
+# CompliScan AI - Robots.txt Directive
+# Automated Legal Metrology Inspection Portal (SIH 26034)
+
+User-agent: *
+Allow: /
+Allow: /api/compliance/evaluate
+Disallow: /api/auth/
+Disallow: /api/telemetry/
+Disallow: /api/sync/
+
+User-agent: Googlebot
+Allow: /
+Allow: /assets/
+Allow: /api/compliance/evaluate
+
+User-agent: Bingbot
+Allow: /
+Allow: /assets/
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+Sitemap: https://compliscan.gov.in/sitemap.xml
+Sitemap: http://localhost:3000/sitemap.xml

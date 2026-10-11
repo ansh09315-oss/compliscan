@@ -3,7 +3,7 @@
 import React, { useRef } from 'react';
 import { useAppStore } from '@/lib/store';
 import { computeSHA256FromBlob } from '@/lib/cryptoUtils';
-import { ArrowLeft, Camera, RotateCcw, CheckCircle, Image as ImageIcon, ChevronRight, Trash2 } from 'lucide-react';
+import { ArrowLeft, Camera, RotateCcw, CheckCircle, Image as ImageIcon, ChevronRight, Trash2, Sparkles, Loader2 } from 'lucide-react';
 import type { AngleType } from '@/types/metrology';
 
 const REQUIRED_ANGLES: { type: AngleType; label: string; required: boolean }[] = [
@@ -15,7 +15,8 @@ const REQUIRED_ANGLES: { type: AngleType; label: string; required: boolean }[] =
 ];
 
 export default function Screen05MultiAngle() {
-  const { capturedAngles, addCapturedAngle, removeCapturedAngle, clearCaptures, setScreen } = useAppStore();
+  const { capturedAngles, addCapturedAngle, removeCapturedAngle, clearCaptures, setScreen, loadDemoPackaging } = useAppStore();
+  const [isLoadingDemo, setIsLoadingDemo] = React.useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activeAngleRef = useRef<AngleType>('FRONT');
 
@@ -78,16 +79,45 @@ export default function Screen05MultiAngle() {
             Capture or upload images from all required angles for comprehensive Legal Metrology analysis
           </p>
         </div>
-        {capturedCount > 0 && (
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <button
             type="button"
             className="gov-btn gov-btn-outline"
-            style={{ fontSize: '12px', padding: '6px 14px', color: 'var(--violation-red)', borderColor: 'var(--violation-red)' }}
-            onClick={clearCaptures}
+            style={{
+              fontSize: '12.5px',
+              padding: '7px 14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              borderColor: '#3B82F6',
+              color: '#1D4ED8',
+              background: 'rgba(59, 130, 246, 0.08)',
+              fontWeight: 600,
+            }}
+            disabled={isLoadingDemo}
+            onClick={async () => {
+              setIsLoadingDemo(true);
+              try {
+                await loadDemoPackaging();
+              } finally {
+                setIsLoadingDemo(false);
+              }
+            }}
           >
-            <Trash2 size={14} /> Clear All
+            {isLoadingDemo ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+            Load Demo Sample (Yoga Bar 4-Angle)
           </button>
-        )}
+          {capturedCount > 0 && (
+            <button
+              type="button"
+              className="gov-btn gov-btn-outline"
+              style={{ fontSize: '12px', padding: '6px 14px', color: 'var(--violation-red)', borderColor: 'var(--violation-red)' }}
+              onClick={clearCaptures}
+            >
+              <Trash2 size={14} /> Clear All
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Progress */}
@@ -223,9 +253,36 @@ export default function Screen05MultiAngle() {
         </div>
 
         {!allRequiredCaptured ? (
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>
-            Upload at least 1 packaging image to proceed
-          </p>
+          <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+              Upload packaging panels above, or load the official 4-panel test sample to inspect immediately:
+            </p>
+            <button
+              type="button"
+              className="gov-btn gov-btn-outline"
+              style={{
+                fontSize: '12.5px',
+                padding: '6px 14px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                borderColor: 'var(--primary-blue)',
+                color: 'var(--primary-blue)',
+              }}
+              disabled={isLoadingDemo}
+              onClick={async () => {
+                setIsLoadingDemo(true);
+                try {
+                  await loadDemoPackaging();
+                } finally {
+                  setIsLoadingDemo(false);
+                }
+              }}
+            >
+              {isLoadingDemo ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+              Auto-Load 4-Panel Yoga Bar Sample
+            </button>
+          </div>
         ) : (
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px' }}>
             Ready for AI analysis ({capturedCount} packaging panels attached)

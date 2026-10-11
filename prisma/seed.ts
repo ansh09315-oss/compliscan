@@ -2,21 +2,61 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+import crypto from 'crypto';
+
+function hashPw(password: string, salt: string): string {
+  return crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
+}
+
+const inspectorSalt = 'a1f8c29e4d7b105638e9c0245a812b7f3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f';
+const inspectorHash = hashPw('Password@1045', inspectorSalt);
+
+const adminSalt = 'b2e9d30f5e8c216749fa01356b923c8e4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a';
+const adminHash = hashPw('AdminSecure@2026', adminSalt);
+
 async function main() {
   // Create inspector
   const inspector = await prisma.inspector.upsert({
     where: { badgeNumber: '1045' },
-    update: {},
+    update: {
+      passwordHash: inspectorHash,
+      salt: inspectorSalt,
+      role: 'INSPECTOR',
+    },
     create: {
       badgeNumber: '1045',
       fullName: 'Rajesh Kumar Sharma',
       email: 'rk.sharma@legalmetrology.gov.in',
       assignedDistrict: 'Central Delhi',
       stateTerritory: 'Delhi NCT',
+      passwordHash: inspectorHash,
+      salt: inspectorSalt,
+      role: 'INSPECTOR',
+    },
+  });
+
+  // Create Chief Admin
+  const admin = await prisma.inspector.upsert({
+    where: { badgeNumber: 'ADMIN01' },
+    update: {
+      passwordHash: adminHash,
+      salt: adminSalt,
+      role: 'ADMIN',
+    },
+    create: {
+      badgeNumber: 'ADMIN01',
+      fullName: 'Chief Enforcement Administrator',
+      email: 'admin@legalmetrology.gov.in',
+      assignedDistrict: 'HQ Directorate Delhi',
+      stateTerritory: 'National Capital Region',
+      passwordHash: adminHash,
+      salt: adminSalt,
+      role: 'ADMIN',
     },
   });
 
   console.log('Created inspector:', inspector.fullName);
+  console.log('Created admin:', admin.fullName);
 
   // Seed inspections
   const inspections = [

@@ -19,4 +19,12 @@ echo "⚖️  CompliScan AI Legal Metrology Engine (SIH 26034)"
 echo "📡 Binding to http://${HOST}:${PORT}"
 echo "=========================================================="
 
-python3 -m uvicorn backend.main:app --host "${HOST}" --port "${PORT}" --reload
+DEBUG_MODE="${DEBUG:-false}"
+
+if [ "$DEBUG_MODE" = "true" ]; then
+    echo "⚠️  Running with debug reload enabled"
+    python3 -m uvicorn backend.main:app --host "${HOST}" --port "${PORT}" --reload
+else
+    echo "🔒 Running in hardened production mode (reload disabled)"
+    python3 -m uvicorn backend.main:app --host "${HOST}" --port "${PORT}"
+fi

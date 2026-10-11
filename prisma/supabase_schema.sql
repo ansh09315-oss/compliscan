@@ -13,6 +13,9 @@ CREATE TABLE IF NOT EXISTS public.inspectors (
     badge_number VARCHAR(50) UNIQUE NOT NULL,
     full_name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255),
+    salt VARCHAR(64),
+    role VARCHAR(50) DEFAULT 'INSPECTOR', -- ADMIN, INSPECTOR, SUPERVISOR
     assigned_district VARCHAR(255) NOT NULL,
     state_territory VARCHAR(255) DEFAULT 'Delhi NCT',
     public_key TEXT DEFAULT 'RSA-2048-GOV-SIMULATED-KEY',
@@ -130,23 +133,202 @@ CREATE INDEX IF NOT EXISTS idx_dossiers_timestamp ON public.inspection_dossiers(
 CREATE INDEX IF NOT EXISTS idx_violations_dossier ON public.violation_records(dossier_id);
 CREATE INDEX IF NOT EXISTS idx_angles_dossier ON public.captured_angles(dossier_id);
 
--- Row Level Security (RLS)
+-- Row Level Security (RLS) — Hardened Policies (Zero-Trust & BOLA / IDOR Defense)
 ALTER TABLE public.inspectors ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.statutory_rules ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inspection_dossiers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.captured_angles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.violation_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.test_runs ENABLE ROW LEVEL SECURITY;
 
--- Allow authenticated and anon access for hackathon / inspection operations
-CREATE POLICY "Allow public read access to dossiers" ON public.inspection_dossiers FOR SELECT USING (true);
-CREATE POLICY "Allow public insert to dossiers" ON public.inspection_dossiers FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow public update to dossiers" ON public.inspection_dossiers FOR UPDATE USING (true);
+-- 1. Inspectors:
+-- Field inspectors can only view their own identity record; Admins & Supervisors view all inspectors.
+CREATE POLICY "Inspectors viewable by self or administrative roles" ON public.inspectors 
+    FOR SELECT TO authenticated 
+    USING (
+        (select auth.uid()) = id
+        OR (auth.jwt() -> 'app_metadata' ->> 'role') IN ('ADMIN', 'SUPERVISOR')
+    );
 
-CREATE POLICY "Allow public read access to violations" ON public.violation_records FOR SELECT USING (true);
-CREATE POLICY "Allow public insert to violations" ON public.violation_records FOR INSERT WITH CHECK (true);
+CREATE POLICY "Inspectors updatable by self or admin" ON public.inspectors 
+    FOR UPDATE TO authenticated 
+    USING (
+        (select auth.uid()) = id
+        OR (auth.jwt() -> 'app_metadata' ->> 'role') = 'ADMIN'
+    )
+    WITH CHECK (
+        (select auth.uid()) = id
+        OR (auth.jwt() -> 'app_metadata' ->> 'role') = 'ADMIN'
+    );
 
-CREATE POLICY "Allow public read access to angles" ON public.captured_angles FOR SELECT USING (true);
-CREATE POLICY "Allow public insert to angles" ON public.captured_angles FOR INSERT WITH CHECK (true);
+CREATE POLICY "Inspectors insertable only by admin" ON public.inspectors 
+    FOR INSERT TO authenticated 
+    WITH CHECK (
+        (auth.jwt() -> 'app_metadata' ->> 'role') = 'ADMIN'
+    );
 
-CREATE POLICY "Allow public read access to tests" ON public.test_runs FOR SELECT USING (true);
-CREATE POLICY "Allow public insert to tests" ON public.test_runs FOR INSERT WITH CHECK (true);
+-- 2. Statutory Rules:
+-- All authenticated officers can read regulatory rules; modifications restricted to Admins.
+CREATE POLICY "Statutory rules viewable by authenticated users" ON public.statutory_rules 
+    FOR SELECT TO authenticated 
+    USING (true);
+
+CREATE POLICY "Statutory rules modifiable only by admins" ON public.statutory_rules 
+    FOR ALL TO authenticated 
+    USING (
+        (auth.jwt() -> 'app_metadata' ->> 'role') = 'ADMIN'
+    )
+    WITH CHECK (
+        (auth.jwt() -> 'app_metadata' ->> 'role') = 'ADMIN'
+    );
+
+-- 3. Inspection Dossiers:
+-- Anti-BOLA / IDOR: Field inspectors can only access dossiers they recorded. Supervisors & Admins see all.
+CREATE POLICY "Dossiers viewable by owner or supervisors" ON public.inspection_dossiers 
+    FOR SELECT TO authenticated 
+    USING (
+        (select auth.uid()) = inspector_id
+        OR (auth.jwt() -> 'app_metadata' ->> 'role') IN ('ADMIN', 'SUPERVISOR')
+    );
+
+-- Enforce that dossiers are always authored by the caller's authentic identity from auth.uid()
+CREATE POLICY "Dossiers insertable by assigned inspector" ON public.inspection_dossiers 
+    FOR INSERT TO authenticated 
+    WITH CHECK (
+        (select auth.uid()) = inspector_id
+        AND (auth.jwt() -> 'app_metadata' ->> 'role') IN ('INSPECTOR', 'SUPERVISOR', 'ADMIN')
+    );
+
+-- Update requires both USING and WITH CHECK to prevent reassigning ownership to another inspector
+CREATE POLICY "Dossiers updatable by author or admin" ON public.inspection_dossiers 
+    FOR UPDATE TO authenticated 
+    USING (
+        (select auth.uid()) = inspector_id
+        OR (auth.jwt() -> 'app_metadata' ->> 'role') = 'ADMIN'
+    )
+    WITH CHECK (
+        (select auth.uid()) = inspector_id
+        OR (auth.jwt() -> 'app_metadata' ->> 'role') = 'ADMIN'
+    );
+
+CREATE POLICY "Dossiers deletable only by admin" ON public.inspection_dossiers 
+    FOR DELETE TO authenticated 
+    USING (
+        (auth.jwt() -> 'app_metadata' ->> 'role') = 'ADMIN'
+    );
+
+-- 4. Captured Angles / Artifacts:
+-- Accessible only if caller has access to the parent inspection dossier
+CREATE POLICY "Captured angles viewable by dossier owners or supervisors" ON public.captured_angles 
+    FOR SELECT TO authenticated 
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.inspection_dossiers d
+            WHERE d.id = captured_angles.dossier_id
+            AND (
+                d.inspector_id = (select auth.uid())
+                OR (auth.jwt() -> 'app_metadata' ->> 'role') IN ('ADMIN', 'SUPERVISOR')
+            )
+        )
+    );
+
+CREATE POLICY "Captured angles insertable for owned dossiers" ON public.captured_angles 
+    FOR INSERT TO authenticated 
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.inspection_dossiers d
+            WHERE d.id = captured_angles.dossier_id
+            AND (
+                d.inspector_id = (select auth.uid())
+                OR (auth.jwt() -> 'app_metadata' ->> 'role') IN ('ADMIN', 'SUPERVISOR')
+            )
+        )
+    );
+
+CREATE POLICY "Captured angles updatable for owned dossiers or admin" ON public.captured_angles 
+    FOR UPDATE TO authenticated 
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.inspection_dossiers d
+            WHERE d.id = captured_angles.dossier_id
+            AND (
+                d.inspector_id = (select auth.uid())
+                OR (auth.jwt() -> 'app_metadata' ->> 'role') = 'ADMIN'
+            )
+        )
+    )
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.inspection_dossiers d
+            WHERE d.id = captured_angles.dossier_id
+            AND (
+                d.inspector_id = (select auth.uid())
+                OR (auth.jwt() -> 'app_metadata' ->> 'role') = 'ADMIN'
+            )
+        )
+    );
+
+-- 5. Violation Records:
+-- Accessible and insertable only if caller has access to the parent inspection dossier
+CREATE POLICY "Violations viewable by dossier owners or supervisors" ON public.violation_records 
+    FOR SELECT TO authenticated 
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.inspection_dossiers d
+            WHERE d.id = violation_records.dossier_id
+            AND (
+                d.inspector_id = (select auth.uid())
+                OR (auth.jwt() -> 'app_metadata' ->> 'role') IN ('ADMIN', 'SUPERVISOR')
+            )
+        )
+    );
+
+CREATE POLICY "Violations insertable for owned dossiers" ON public.violation_records 
+    FOR INSERT TO authenticated 
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.inspection_dossiers d
+            WHERE d.id = violation_records.dossier_id
+            AND (
+                d.inspector_id = (select auth.uid())
+                OR (auth.jwt() -> 'app_metadata' ->> 'role') IN ('ADMIN', 'SUPERVISOR')
+            )
+        )
+    );
+
+CREATE POLICY "Violations updatable for owned dossiers or admin" ON public.violation_records 
+    FOR UPDATE TO authenticated 
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.inspection_dossiers d
+            WHERE d.id = violation_records.dossier_id
+            AND (
+                d.inspector_id = (select auth.uid())
+                OR (auth.jwt() -> 'app_metadata' ->> 'role') = 'ADMIN'
+            )
+        )
+    )
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.inspection_dossiers d
+            WHERE d.id = violation_records.dossier_id
+            AND (
+                d.inspector_id = (select auth.uid())
+                OR (auth.jwt() -> 'app_metadata' ->> 'role') = 'ADMIN'
+            )
+        )
+    );
+
+-- 6. Test Telemetry Runs:
+-- Only supervisors and admins can view and record internal test telemetry
+CREATE POLICY "Tests viewable by supervisors and admins" ON public.test_runs 
+    FOR SELECT TO authenticated 
+    USING (
+        (auth.jwt() -> 'app_metadata' ->> 'role') IN ('ADMIN', 'SUPERVISOR')
+    );
+
+CREATE POLICY "Tests insertable by supervisors and admins" ON public.test_runs 
+    FOR INSERT TO authenticated 
+    WITH CHECK (
+        (auth.jwt() -> 'app_metadata' ->> 'role') IN ('ADMIN', 'SUPERVISOR')
+    );

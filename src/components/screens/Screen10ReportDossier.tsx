@@ -28,7 +28,7 @@ import {
 import type { CommodityCategory, PackagingGeometry } from '@/types/metrology';
 
 export default function Screen10ReportDossier() {
-  const { activeDossier, updateActiveDossier, currentInspector, setScreen, addToHistory } = useAppStore();
+  const { activeDossier, updateActiveDossier, currentInspector, setScreen, addToHistory, goBack, previousScreen } = useAppStore();
 
   const [activeTab, setActiveTab] = useState<'preview' | 'edit'>('preview');
   const [isSaving, setIsSaving] = useState(false);
@@ -252,7 +252,7 @@ export default function Screen10ReportDossier() {
     <div className="screen-container" style={{ animation: 'fade-in-up 0.4s ease-out' }}>
       {/* Top Action Bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-        <button className="gov-btn gov-btn-ghost" onClick={() => setScreen('compliance-gauge')}>
+        <button className="gov-btn gov-btn-ghost" onClick={() => previousScreen ? goBack() : setScreen('history-table')}>
           <ArrowLeft size={16} /> Back
         </button>
 

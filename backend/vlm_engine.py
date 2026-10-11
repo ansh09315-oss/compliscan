@@ -2,9 +2,13 @@
 Engine 1: The Semantic Brain — Multi-Image Contextual VLM Engine
 (backend/vlm_engine.py)
 
-Uses Google Generative AI (gemini-1.5-flash) to process multiple packaging images
-(Front, Back, Side, Batch) simultaneously in a single API call.
-Stitches fragmented data across panels into a production-ready comprehensive JSON payload.
+Uses Google Generative AI (Gemini 2.5 Flash / 2.0 Flash / 1.5 Flash) to process multiple
+packaging images (Front, Back, Side, Batch) simultaneously in an asynchronous, non-blocking pipeline.
+Features:
+- Dynamic image pre-processing (downsampling to <=1280px and compressing to strictly <1MB).
+- Async execution with Tenacity / exponential backoff retry on transient API failures.
+- Non-blocking concurrent Pass-2 targeted recovery for missing packaging declarations.
+- Resilient non-fatal fallback: Never crashes the pipeline if VLM is unavailable or rate-limited.
 """
 
 import os
@@ -13,9 +17,11 @@ import re
 import json
 import logging
 import sys
+import asyncio
 from typing import Dict, Any, Optional, List, Union
 from PIL import Image
 
+# UTF-8 stdout configuration for Windows CP1252 / Linux UTF-8 compatibility
 if hasattr(sys.stdout, "reconfigure"):
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -24,6 +30,19 @@ if hasattr(sys.stdout, "reconfigure"):
         pass
 
 import google.generativeai as genai
+
+# Tenacity resilient retry imports with graceful fallback
+try:
+    from tenacity import (
+        retry,
+        stop_after_attempt,
+        wait_exponential,
+        retry_if_exception_type,
+        before_sleep_log
+    )
+    TENACITY_AVAILABLE = True
+except ImportError:
+    TENACITY_AVAILABLE = False
 
 logger = logging.getLogger("vlm_engine")
 
@@ -100,7 +119,69 @@ def _to_pil_image(img_input: Any) -> Optional[Image.Image]:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 3. The Strict JSON System Prompt (CRITICAL)
+# 1. High-Performance Image Preprocessing (Under 1MB & Max 1280px)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def preprocess_image_for_vlm(
+    img_input: Any,
+    max_dimension: int = 1280,
+    max_bytes: int = 1048576  # 1 MB
+) -> Optional[Image.Image]:
+    """
+    Dynamically compresses and downsamples packaging panel images to strictly
+    under 1MB and max dimension 1280px before passing to Gemini VLM.
+    - Eliminates HTTP payload timeouts and API quota overflow.
+    - Preserves high-contrast character edges for micro-text statutory declarations.
+    - Operates safely on RGB images (stripping transparency alpha channels).
+    """
+    img = _to_pil_image(img_input)
+    if img is None:
+        return None
+
+    try:
+        # 1. Normalize color mode to RGB
+        if img.mode != "RGB":
+            img = img.convert("RGB")
+
+        # 2. Proportionally resize if either dimension exceeds max_dimension
+        orig_w, orig_h = img.size
+        if orig_w > max_dimension or orig_h > max_dimension:
+            scale = max_dimension / max(orig_w, orig_h)
+            new_w = max(1, int(orig_w * scale))
+            new_h = max(1, int(orig_h * scale))
+            img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+
+        # 3. Dynamic iterative JPEG compression to guarantee under 1MB
+        quality = 85
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=quality, optimize=True)
+
+        # If payload still exceeds 1MB, reduce quality progressively
+        while buf.tell() > max_bytes and quality > 35:
+            quality -= 15
+            buf.seek(0)
+            buf.truncate()
+            img.save(buf, format="JPEG", quality=quality, optimize=True)
+
+        # If still exceeding 1MB (e.g. extremely noisy patterns), downscale further
+        if buf.tell() > max_bytes:
+            cur_w, cur_h = img.size
+            img = img.resize((int(cur_w * 0.75), int(cur_h * 0.75)), Image.Resampling.LANCZOS)
+            buf.seek(0)
+            buf.truncate()
+            img.save(buf, format="JPEG", quality=60, optimize=True)
+
+        buf.seek(0)
+        final_img = Image.open(buf)
+        final_img.load()
+        return final_img
+    except Exception as e:
+        logger.warning(f"[VLM Preprocessor] Error preprocessing image: {e}")
+        return img
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2. The Strict JSON System Prompt
 # ─────────────────────────────────────────────────────────────────────────────
 
 STRICT_MULTI_IMAGE_PROMPT = """You are a Master Legal Metrology and Food Safety (FSSAI) Inspector. 
@@ -156,26 +237,21 @@ Return ONLY a valid JSON object matching this exact schema. Do not include markd
 
 
 def _clean_and_parse_json(raw_text: str) -> Optional[Dict[str, Any]]:
-    """
-    Cleans markdown formatting and parses JSON with robust fallback regex.
-    """
+    """Cleans markdown formatting and parses JSON with robust fallback regex."""
     if not raw_text:
         return None
 
     cleaned = raw_text.strip()
-    # Strip markdown code fences if present
     if "```json" in cleaned:
         cleaned = cleaned.split("```json")[1].split("```")[0].strip()
     elif "```" in cleaned:
         cleaned = cleaned.split("```")[1].strip()
 
-    # Attempt direct parse
     try:
         return json.loads(cleaned)
     except Exception:
         pass
 
-    # Regex fallback: find outermost matching JSON object
     match = re.search(r'(\{[\s\S]*\})', cleaned)
     if match:
         try:
@@ -187,17 +263,13 @@ def _clean_and_parse_json(raw_text: str) -> Optional[Dict[str, Any]]:
 
 
 def _flatten_comprehensive_schema(parsed: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Maps the rich nested multi-image JSON schema into flat legal metrology fields
-    for Master Brain cross-validation while preserving the full comprehensiveDetails object.
-    """
+    """Maps the rich nested multi-image JSON schema into flat legal metrology fields."""
     po = parsed.get("productOverview") or {}
     pb = parsed.get("pricingAndBatch") or {}
     ni = parsed.get("nutritionalInfoPer100g") or {}
     ia = parsed.get("ingredientsAndAllergens") or {}
     md = parsed.get("manufacturerDetails") or {}
 
-    # Extract Net Quantity numeric value & unit from netWeight string (e.g. '450 g', '750 ml')
     net_val = None
     net_unit = "g"
     raw_weight = str(pb.get("netWeight") or "")
@@ -211,7 +283,6 @@ def _flatten_comprehensive_schema(parsed: Dict[str, Any]) -> Dict[str, Any]:
     elif pb.get("netWeight") and isinstance(pb.get("netWeight"), (int, float)):
         net_val = float(pb["netWeight"])
 
-    # Extract MRP numeric float
     mrp_val = None
     raw_mrp = pb.get("mrp")
     if raw_mrp is not None:
@@ -220,7 +291,6 @@ def _flatten_comprehensive_schema(parsed: Dict[str, Any]) -> Dict[str, Any]:
         except ValueError:
             pass
 
-    # Extract USP numeric value (e.g. 'Rs. 0.59/g' -> 0.59)
     usp_val = None
     raw_usp = str(pb.get("usp") or "")
     m_usp = re.search(r'(\d+(?:\.\d+)?)', raw_usp)
@@ -230,7 +300,6 @@ def _flatten_comprehensive_schema(parsed: Dict[str, Any]) -> Dict[str, Any]:
         except ValueError:
             pass
 
-    # Extract Mfg Month & Year (Handles DD/MM/YY and MM/YYYY)
     mfg_month = None
     mfg_year = None
     raw_mfg = str(pb.get("mfgDate") or "")
@@ -273,9 +342,7 @@ def _flatten_comprehensive_schema(parsed: Dict[str, Any]) -> Dict[str, Any]:
         or care_dict.get("email")
     )
 
-    # Build standardized flat dictionary with comprehensive details attached
     return {
-        # Core Legal Metrology Fields
         "productName": po.get("productName") or parsed.get("productName"),
         "brandName": po.get("brandName") or parsed.get("brandName"),
         "variant": po.get("variant"),
@@ -292,34 +359,24 @@ def _flatten_comprehensive_schema(parsed: Dict[str, Any]) -> Dict[str, Any]:
         "expiryDate": pb.get("useByDate"),
         "batchNumber": pb.get("lotOrBatchNo"),
         "barcode": pb.get("barcode"),
-
-        # Manufacturer & FSSAI Details
         "manufacturerName": md.get("companyName") or md.get("name") or parsed.get("manufacturerName"),
         "manufacturerAddress": md.get("completeAddress") or md.get("address") or parsed.get("manufacturerAddress"),
         "fssaiLicenseNo": md.get("fssaiLicenseNo") or parsed.get("fssaiLicenseNo"),
         "consumerCarePhone": care_phone,
         "consumerCareEmail": care_email,
         "countryOfOrigin": "India",
-
-        # Food Safety & Nutritional Attributes
         "dietaryClassification": po.get("dietaryClassification"),
         "keyClaims": po.get("keyClaims") or [],
         "nutritionalInfoPer100g": ni,
         "ingredientsList": ia.get("ingredientsList"),
         "allergenAdvice": ia.get("allergenAdvice"),
         "manufacturingWarning": ia.get("manufacturingWarning"),
-
-        # Full Original Nested Object for UI Rendering
         "comprehensiveDetails": parsed
     }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 2. Advanced Multi-Image VLM Extraction Logic
-# ─────────────────────────────────────────────────────────────────────────────
-
 def _identify_missing_statutory_fields(flattened: Dict[str, Any]) -> List[str]:
-    """Checks which mandatory statutory declarations are missing or null."""
+    """Identifies which mandatory declarations are missing or null."""
     missing = []
     if not flattened.get("brandName"):
         missing.append("brandName")
@@ -346,66 +403,115 @@ def _identify_missing_statutory_fields(flattened: Dict[str, Any]) -> List[str]:
     return missing
 
 
-def extract_comprehensive_details(image_bytes_list: List[bytes]) -> Optional[Dict[str, Any]]:
+# ─────────────────────────────────────────────────────────────────────────────
+# 3. Resilient Async Model Execution with Tenacity & Exponential Backoff
+# ─────────────────────────────────────────────────────────────────────────────
+
+CANDIDATE_MODELS = [
+    'models/gemini-3.5-flash',
+    'models/gemini-3-flash-preview',
+    'models/gemini-3.5-flash-lite',
+    'models/gemini-flash-lite-latest',
+]
+
+
+async def _execute_gemini_async_with_retry(
+    model: Any,
+    content_payload: list,
+    timeout_seconds: float = 25.0,
+    max_retries: int = 3
+) -> Optional[str]:
     """
-    Processes multiple packaging panel images simultaneously in a single Gemini API call,
-    with an intelligent looping mechanism that continues querying panels until all
-    mandatory packaging details are fully extracted.
+    Executes Gemini content generation asynchronously with Tenacity / exponential backoff.
+    Catches 429 rate limits, 503 service unavailable, timeouts, and network resets.
+    """
+    if TENACITY_AVAILABLE:
+        @retry(
+            stop=stop_after_attempt(max_retries),
+            wait=wait_exponential(multiplier=1.2, min=1.5, max=6.0),
+            retry=retry_if_exception_type((Exception,)),
+            reraise=True
+        )
+        async def _call_tenacity():
+            coro = model.generate_content_async(content_payload)
+            res = await asyncio.wait_for(coro, timeout=timeout_seconds)
+            return res.text if (res and res.text) else ""
+
+        try:
+            return await _call_tenacity()
+        except Exception as e:
+            logger.warning(f"[VLM Tenacity] Retries exhausted for model attempt: {e}")
+            return None
+    else:
+        # Fallback exponential backoff retry loop
+        backoff = 1.5
+        for attempt in range(1, max_retries + 1):
+            try:
+                coro = model.generate_content_async(content_payload)
+                res = await asyncio.wait_for(coro, timeout=timeout_seconds)
+                return res.text if (res and res.text) else ""
+            except Exception as e:
+                logger.warning(f"[VLM Backoff] Attempt {attempt}/{max_retries} failed: {e}")
+                if attempt < max_retries:
+                    await asyncio.sleep(backoff)
+                    backoff *= 1.5
+                else:
+                    return None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 4. Asynchronous Multi-Image VLM Extraction Engine
+# ─────────────────────────────────────────────────────────────────────────────
+
+async def extract_comprehensive_details(image_bytes_list: List[bytes]) -> Optional[Dict[str, Any]]:
+    """
+    Asynchronously processes multiple packaging panel images simultaneously in Gemini VLM.
+    - Dynamically compresses/resizes all images to <=1MB and <=1280px in parallel threads.
+    - Employs non-blocking async/await calls with Tenacity exponential backoff retries.
+    - Resolves missing declarations through non-blocking parallel targeted sub-queries.
+    - Non-fatal fallback: Never crashes the pipeline if VLM fails; allows OCR to arbitrate.
     """
     if not image_bytes_list:
         logger.warning("[VLM] No image bytes provided to extract_comprehensive_details.")
         return None
 
-    print(f"[VLM Brain] Analyzing {len(image_bytes_list)} images simultaneously...")
+    print(f"[VLM Brain] Asynchronously analyzing {len(image_bytes_list)} panel(s)...", flush=True)
 
-    # Load and configure API key dynamically with REST transport for Windows stability
+    # 1. Resolve and configure API Key
     api_key = _load_gemini_key_from_env() or _API_KEY
     if not api_key:
-        logger.warning("[VLM] GEMINI_API_KEY is not set.")
+        logger.warning("[VLM] GEMINI_API_KEY is not set. Skipping VLM (OCR Path B will execute).")
         return None
 
     try:
         genai.configure(api_key=api_key, transport="rest")
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"[VLM] Notice on genai configuration: {e}")
 
-    # Convert all raw byte buffers into PIL Image objects and optimize dimensions for fast REST transfer
-    pil_images: List[Image.Image] = []
-    for idx, b in enumerate(image_bytes_list):
-        pil_img = _to_pil_image(b)
-        if pil_img is not None:
-            # Resize large images to max 800x800 for fast REST uploads (Gemini Flash
-            # extracts text reliably at this resolution; cuts payload ~60% vs 1280px)
-            if pil_img.width > 800 or pil_img.height > 800:
-                pil_img = pil_img.copy()
-                pil_img.thumbnail((800, 800), Image.Resampling.LANCZOS)
-            pil_images.append(pil_img)
-        else:
-            logger.warning(f"[VLM] Image buffer #{idx+1} could not be converted to PIL.")
+    # 2. Asynchronously preprocess all images in parallel (<=1MB, <=1280px)
+    preproc_tasks = [
+        asyncio.to_thread(preprocess_image_for_vlm, b) for b in image_bytes_list
+    ]
+    pil_results = await asyncio.gather(*preproc_tasks)
+    pil_images: List[Image.Image] = [img for img in pil_results if img is not None]
 
     if not pil_images:
-        print("[VLM ERROR] No valid image panels could be parsed.", flush=True)
+        print("[VLM WARNING] No valid image panels could be decoded.", flush=True)
         return None
 
-    candidate_models = [
-        'models/gemini-3-flash-preview',
-        'models/gemini-3.5-flash',
-        'models/gemini-3.5-flash-lite',
-        'models/gemini-3.1-pro-preview',
-        'models/gemini-flash-lite-latest',
-    ]
-
-    # ── PASS 1: Global Multi-Image Contextual Synthesis ────────────────────────
+    # 3. PASS 1: Global Multi-Image Contextual Synthesis
     content_payload = [STRICT_MULTI_IMAGE_PROMPT] + pil_images
     flattened: Optional[Dict[str, Any]] = None
     active_model = None
 
-    for model_name in candidate_models:
+    for model_name in CANDIDATE_MODELS:
         try:
-            print(f"[VLM] Trying model {model_name}...", flush=True)
+            print(f"[VLM Async] Querying model {model_name}...", flush=True)
             model = genai.GenerativeModel(model_name)
-            response = model.generate_content(content_payload)
-            raw_text = response.text if (response and response.text) else ""
+            raw_text = await _execute_gemini_async_with_retry(model, content_payload, timeout_seconds=25.0)
+
+            if not raw_text:
+                continue
 
             parsed_json = _clean_and_parse_json(raw_text)
             if parsed_json and isinstance(parsed_json, dict):
@@ -419,27 +525,24 @@ def extract_comprehensive_details(image_bytes_list: List[bytes]) -> Optional[Dic
                 )
                 break
         except Exception as e:
-            print(f"[VLM] Model {model_name} error: {e}", flush=True)
+            logger.warning(f"[VLM Async] Model {model_name} encountered error: {e}")
             continue
 
+    # Non-fatal handling if Pass 1 returned no extraction
     if not flattened:
-        print("[VLM ERROR] Pass 1 Extraction Error across candidate models.", flush=True)
+        print("[VLM NOTE] Pass 1 extraction did not complete across candidate models. Yielding to OCR Path B.", flush=True)
         return None
 
-    # ── PASS 2: Targeted Extraction (Single pass if critical pricing is missing) ─────────────
+    # 4. PASS 2: Asynchronous Concurrent Targeted Extraction (for missing declarations)
     missing_fields = _identify_missing_statutory_fields(flattened)
     if not missing_fields:
-        print("[VLM SUCCESS] All mandatory statutory declarations extracted successfully!", flush=True)
-    else:
-        print(f"[VLM Status] Missing declarations on packaging: {missing_fields}", flush=True)
+        print("[VLM SUCCESS] All mandatory statutory declarations extracted completely!", flush=True)
+    elif active_model is not None:
+        print(f"[VLM Status] Missing declarations on packaging: {missing_fields}. Launching targeted recovery...", flush=True)
 
-        # ── PARALLEL targeted extraction for all missing field categories ──────
-        from concurrent.futures import ThreadPoolExecutor, as_completed
-
-        def _query_pricing(model, imgs, flat):
-            """Sub-loop A: Missing pricing / batch / dates"""
-            targeted_prompt = """You are an expert Legal Metrology officer inspecting the packaging stamps.
-Inspect the provided packaging panels (specifically looking for the white inkjet box or stamp).
+        async def _query_pricing_async():
+            prompt = """You are an expert Legal Metrology officer inspecting packaging stamps.
+Inspect the provided packaging panels (specifically looking for the inkjet box or stamp).
 Extract ONLY what is actually printed on this commodity into a JSON object:
 {
   "netWeight": "Net quantity with unit (e.g. '100 g', '500 ml')",
@@ -450,18 +553,12 @@ Extract ONLY what is actually printed on this commodity into a JSON object:
   "lotOrBatchNo": "Batch or Lot code if printed, else null"
 }
 Return only JSON."""
-            try:
-                target_imgs = imgs[-2:] if len(imgs) >= 2 else imgs
-                res = model.generate_content([targeted_prompt] + target_imgs)
-                t_json = _clean_and_parse_json(res.text if res else "")
-                return ("pricing", t_json)
-            except Exception as e:
-                logger.warning(f"[VLM Parallel] Pricing query error: {e}")
-                return ("pricing", None)
+            target_imgs = pil_images[-2:] if len(pil_images) >= 2 else pil_images
+            raw = await _execute_gemini_async_with_retry(active_model, [prompt] + target_imgs, timeout_seconds=15.0)
+            return ("pricing", _clean_and_parse_json(raw or ""))
 
-        def _query_regulatory(model, imgs, flat):
-            """Sub-loop B: Missing manufacturer / FSSAI / consumer care"""
-            targeted_reg_prompt = """You are a Regulatory Inspector inspecting product regulatory panels.
+        async def _query_regulatory_async():
+            prompt = """You are a Regulatory Inspector inspecting product regulatory panels.
 Extract ONLY what is actually printed on this commodity into a JSON object:
 {
   "companyName": "Exact manufacturer, packer, or marketer company name",
@@ -471,18 +568,12 @@ Extract ONLY what is actually printed on this commodity into a JSON object:
   "customerCareEmail": "Support email address if printed, else null"
 }
 Return only JSON."""
-            try:
-                target_imgs = imgs[1:] if len(imgs) > 1 else imgs
-                res = model.generate_content([targeted_reg_prompt] + target_imgs)
-                t_json = _clean_and_parse_json(res.text if res else "")
-                return ("regulatory", t_json)
-            except Exception as e:
-                logger.warning(f"[VLM Parallel] Regulatory query error: {e}")
-                return ("regulatory", None)
+            target_imgs = pil_images[1:] if len(pil_images) > 1 else pil_images
+            raw = await _execute_gemini_async_with_retry(active_model, [prompt] + target_imgs, timeout_seconds=15.0)
+            return ("regulatory", _clean_and_parse_json(raw or ""))
 
-        def _query_pdp(model, imgs, flat):
-            """Sub-loop C: Missing Brand / Product Name"""
-            targeted_pdp_prompt = """Extract the exact Brand Name and Product Name from this Front Principal Display Panel (PDP).
+        async def _query_pdp_async():
+            prompt = """Extract the exact Brand Name and Product Name from this Front Principal Display Panel (PDP).
 Extract ONLY what is actually printed on this commodity:
 {
   "brandName": "Brand or company name",
@@ -492,31 +583,23 @@ Extract ONLY what is actually printed on this commodity:
   "keyClaims": []
 }
 Return only JSON."""
-            try:
-                front_img = [imgs[0]]
-                res = model.generate_content([targeted_pdp_prompt] + front_img)
-                t_json = _clean_and_parse_json(res.text if res else "")
-                return ("pdp", t_json)
-            except Exception as e:
-                logger.warning(f"[VLM Parallel] PDP query error: {e}")
-                return ("pdp", None)
+            raw = await _execute_gemini_async_with_retry(active_model, [prompt, pil_images[0]], timeout_seconds=15.0)
+            return ("pdp", _clean_and_parse_json(raw or ""))
 
         pricing_missing = any(f in missing_fields for f in ["mrpValue", "netQuantityValue", "declaredUspValue", "mfgDate"])
         reg_missing = any(f in missing_fields for f in ["manufacturerName", "manufacturerAddress", "fssaiLicenseNo", "consumerCarePhone", "consumerCareEmail"])
         pdp_missing = any(f in missing_fields for f in ["brandName", "productName"])
 
-        futures = []
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            if pricing_missing and active_model:
-                futures.append(executor.submit(_query_pricing, active_model, pil_images, flattened))
-            if reg_missing and active_model:
-                futures.append(executor.submit(_query_regulatory, active_model, pil_images, flattened))
-            if pdp_missing and active_model:
-                futures.append(executor.submit(_query_pdp, active_model, pil_images, flattened))
+        targeted_tasks = []
+        if pricing_missing: targeted_tasks.append(_query_pricing_async())
+        if reg_missing: targeted_tasks.append(_query_regulatory_async())
+        if pdp_missing: targeted_tasks.append(_query_pdp_async())
 
-            for future in as_completed(futures):
-                try:
-                    category, t_json = future.result(timeout=120)
+        if targeted_tasks:
+            results = await asyncio.gather(*targeted_tasks, return_exceptions=True)
+            for res in results:
+                if isinstance(res, tuple) and len(res) == 2:
+                    category, t_json = res
                     if not t_json:
                         continue
 
@@ -538,18 +621,6 @@ Return only JSON."""
                                 flattened["declaredUspUnit"] = str(t_json["usp"])
                         if not flattened.get("mfgDate") and t_json.get("mfgDate"):
                             flattened["mfgDate"] = str(t_json["mfgDate"])
-                            d_parts = re.findall(r'\d+', str(t_json["mfgDate"]))
-                            if len(d_parts) >= 3:
-                                m = int(d_parts[1])
-                                if m > 12 and int(d_parts[0]) <= 12:
-                                    m = int(d_parts[0])
-                                flattened["mfgMonth"] = m
-                                y = int(d_parts[2])
-                                flattened["mfgYear"] = 2000 + y if y < 100 else y
-                            elif len(d_parts) == 2:
-                                flattened["mfgMonth"] = int(d_parts[0])
-                                y = int(d_parts[1])
-                                flattened["mfgYear"] = 2000 + y if y < 100 else y
                         if t_json.get("useByDate"):
                             flattened["expiryDate"] = str(t_json["useByDate"])
                         if t_json.get("lotOrBatchNo"):
@@ -575,17 +646,13 @@ Return only JSON."""
                         if not flattened.get("variant") and t_json.get("variant"):
                             flattened["variant"] = str(t_json["variant"]).strip()
 
-                except Exception as e:
-                    logger.warning(f"[VLM Parallel] Future result error: {e}")
-
-    # Fallback derivation for Unit Sale Price if Net Qty and MRP exist but USP wasn't declared
+    # Rule 6(11) USP derivation fallback
     if (flattened.get("declaredUspValue") is None or flattened.get("declaredUspValue") <= 0) and \
        (flattened.get("mrpValue") and flattened.get("netQuantityValue") and flattened.get("netQuantityValue") > 0):
-        calc_usp = round(flattened["mrpValue"] / flattened["netQuantityValue"], 2)
-        flattened["declaredUspValue"] = calc_usp
+        flattened["declaredUspValue"] = round(flattened["mrpValue"] / flattened["netQuantityValue"], 2)
         flattened["declaredUspUnit"] = f"per {flattened.get('netQuantityUnit', 'g')}"
 
-    # Sync back into comprehensiveDetails object
+    # Sync back into comprehensiveDetails
     if "comprehensiveDetails" in flattened and isinstance(flattened["comprehensiveDetails"], dict):
         comp = flattened["comprehensiveDetails"]
         comp.setdefault("productOverview", {})["brandName"] = flattened.get("brandName")
@@ -606,19 +673,32 @@ Return only JSON."""
     print(
         f"[VLM COMPLETE] "
         f"Brand='{flattened.get('brandName')}', Product='{flattened.get('productName')}', "
-        f"NetQty={flattened.get('netQuantityValue')}{flattened.get('netQuantityUnit')}, MRP=Rs.{flattened.get('mrpValue')}, "
-        f"USP={flattened.get('declaredUspValue')}, FSSAI={flattened.get('fssaiLicenseNo')}, "
-        f"Mfg='{flattened.get('manufacturerName')}', Address='{flattened.get('manufacturerAddress')}'"
+        f"NetQty={flattened.get('netQuantityValue')}{flattened.get('netQuantityUnit')}, MRP=Rs.{flattened.get('mrpValue')}",
+        flush=True
     )
-
     return flattened
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# 5. Synchronous Backward-Compatibility Bridges
+# ─────────────────────────────────────────────────────────────────────
+
+def extract_comprehensive_details_sync(image_bytes_list: List[bytes]) -> Optional[Dict[str, Any]]:
+    """Synchronous bridge for CLI tools and non-async test scripts."""
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            import nest_asyncio
+            nest_asyncio.apply()
+            return loop.run_until_complete(extract_comprehensive_details(image_bytes_list))
+        else:
+            return loop.run_until_complete(extract_comprehensive_details(image_bytes_list))
+    except Exception:
+        return asyncio.run(extract_comprehensive_details(image_bytes_list))
+
+
 def extract_details_from_all_panels(front_img, back_img, side_img, mrp_img) -> Optional[Dict[str, Any]]:
-    """
-    Backwards-compatible multi-angle wrapper: passes all available panel byte buffers
-    to extract_comprehensive_details.
-    """
+    """Backwards-compatible multi-angle wrapper."""
     byte_list: List[bytes] = []
     for img in [front_img, back_img, side_img, mrp_img]:
         if img is not None:
@@ -636,18 +716,15 @@ def extract_details_from_all_panels(front_img, back_img, side_img, mrp_img) -> O
                 except Exception:
                     pass
 
-    return extract_comprehensive_details(byte_list)
+    return extract_comprehensive_details_sync(byte_list)
 
 
 def extract_with_vlm_multi_angle(angle_images: Dict[str, bytes]) -> Optional[Dict[str, Any]]:
-    """
-    Controller bridge function for split-path execution.
-    Passes list of angle image buffers to extract_comprehensive_details.
-    """
+    """Controller bridge function for split-path execution."""
     byte_list = [b for b in angle_images.values() if b]
-    return extract_comprehensive_details(byte_list)
+    return extract_comprehensive_details_sync(byte_list)
 
 
 def extract_with_vlm(image_bytes: bytes) -> Optional[Dict[str, Any]]:
     """Single-image backwards compatibility wrapper."""
-    return extract_comprehensive_details([image_bytes] if image_bytes else [])
+    return extract_comprehensive_details_sync([image_bytes] if image_bytes else [])

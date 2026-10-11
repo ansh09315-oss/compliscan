@@ -1,0 +1,60 @@
+{
+  "schema_version": 2,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Inspection Scan Engine Lifecycle",
+    "subtitle": "CompliScan Edge VLM Pipeline & React Completion UI",
+    "output": ".archify/lifecycle-scan-engine-20261009-120000/scan-engine.html",
+    "animation": "trace",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    { "id": "main", "label": "Main Progress" },
+    { "id": "waiting", "label": "Waiting & Interruption" },
+    { "id": "terminal", "label": "Terminal Outcomes" }
+  ],
+  "states": [
+    { "id": "init", "type": "start", "label": "Initialization", "sublabel": "Gather 4-Panel Images", "lane": "main", "col": 0, "step": "01", "tag": "pending" },
+    { "id": "validate", "type": "decision", "label": "API Validation", "sublabel": "Check 30/m & 25MB", "lane": "main", "col": 1, "step": "02", "tag": "gate" },
+    { "id": "vlm_primary", "type": "active", "label": "Primary VLM", "sublabel": "Gemini Tri-Core (18s)", "lane": "main", "col": 2, "step": "03", "tag": "running" },
+    { "id": "compliance", "type": "active", "label": "Compliance Evaluate", "sublabel": "Rules Engine & Score", "lane": "main", "col": 3, "step": "04", "tag": "running" },
+    { "id": "sync", "type": "waiting", "label": "Frontend Sync", "sublabel": "Optimistic UI 100%", "lane": "main", "col": 4, "step": "05", "tag": "approved" },
+
+    { "id": "backoff", "type": "waiting", "label": "Backoff", "sublabel": "Wait 1.2s", "lane": "waiting", "col": 2, "tag": "pause" },
+    { "id": "fallback", "type": "active", "label": "Fallback VLM", "sublabel": "2-Panel Extract", "lane": "waiting", "col": 3, "tag": "automatic" },
+
+    { "id": "cancelled", "type": "failure", "label": "Cancelled", "sublabel": "Unmount React", "lane": "terminal", "col": 0, "tag": "terminal" },
+    { "id": "failed_val", "type": "failure", "label": "Limits Exceeded", "sublabel": "429 / 413 / 400", "lane": "terminal", "col": 1, "tag": "terminal" },
+    { "id": "failed_vlm", "type": "failure", "label": "Extraction Failed", "sublabel": "502 Exhausted Models", "lane": "terminal", "col": 3, "tag": "terminal" },
+    { "id": "success", "type": "success", "label": "Analysis Complete", "sublabel": "Transitions to /review", "lane": "terminal", "col": 4, "tag": "success" }
+  ],
+  "transitions": [
+    { "from": "init", "to": "validate" },
+    { "from": "validate", "to": "vlm_primary", "label": "Passed" },
+    { "from": "validate", "to": "failed_val", "variant": "security", "label": "Violates Limits" },
+
+    { "from": "vlm_primary", "to": "compliance", "label": "Extracted" },
+    { "from": "vlm_primary", "to": "backoff", "variant": "dashed", "label": "503 High Demand" },
+    { "from": "backoff", "to": "vlm_primary", "variant": "emphasis", "label": "Retry (1x)" },
+
+    { "from": "vlm_primary", "to": "fallback", "variant": "security", "label": "Timeout / Error" },
+    { "from": "backoff", "to": "fallback", "variant": "security", "label": "Retry Fails", "labelAt": [610, 319] },
+    { "from": "vlm_primary", "to": "failed_vlm", "variant": "security", "label": "Error & <3 panels" },
+
+    { "from": "fallback", "to": "compliance", "variant": "emphasis", "label": "2-Panel Success" },
+    { "from": "fallback", "to": "failed_vlm", "variant": "security", "label": "Fallback Fails" },
+
+    { "from": "compliance", "to": "sync" },
+    { "from": "sync", "to": "success", "label": "700ms wait" },
+
+    { "from": "failed_val", "to": "init", "variant": "dashed", "label": "Load Demo & Retry" },
+    { "from": "failed_vlm", "to": "init", "variant": "dashed", "label": "Load Demo & Retry" },
+
+    { "from": "vlm_primary", "to": "cancelled", "variant": "dashed", "label": "Unmount" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Tri-Core Engine", "items": ["Uses up to 4 models successively: gemini-3.5-flash-lite to gemini-3.1-pro-preview.", "18-second AbortSignal guards against VLM latency.", "Retries exactly once upon HTTP 503 High Demand."] },
+    { "dot": "amber", "title": "Recovery & Fallback", "items": ["If 4 panels fail or time out, engine pivots to 2-panel fallback (Front + MRP).", "Missing images prompt frontend to auto-load the 4-panel demo sample.", "Frontend unmounts safely cancel timers without locking state."] },
+    { "dot": "rose", "title": "Fail-Safe UI", "items": ["Simulated 150ms optimistic progression keeps user engaged.", "Failures reveal error badge; exposes manual 'Load Demo' retry.", "Success triggers 700ms smooth transition to analysis dashboard."] }
+  ]
+}

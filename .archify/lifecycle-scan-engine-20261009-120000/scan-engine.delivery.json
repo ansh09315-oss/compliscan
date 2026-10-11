@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "21e1ee59-4f6c-419c-b4dc-34076b603b46",
+  "status": "current",
+  "command": "deliver",
+  "type": "lifecycle",
+  "input": "C:\\Users\\ansh0\\OneDrive\\Desktop\\compliscan\\.archify\\lifecycle-scan-engine-20261009-120000\\candidate.json",
+  "output": "C:\\Users\\ansh0\\OneDrive\\Desktop\\compliscan\\.archify\\lifecycle-scan-engine-20261009-120000\\scan-engine.html",
+  "specification": {
+    "sha256": "32a3265381a0830b102e8b9fd1a6e8034f2c7d1fe4c0e1cc0697e13c49b71cdf",
+    "bytes": 4476
+  },
+  "artifact": {
+    "sha256": "21c9c683edc4100bf321742caefd962217ba0fdec2762bd1b9bdc3d4588f7680",
+    "bytes": 774738
+  }
+}

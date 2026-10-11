@@ -1,6 +1,11 @@
 {
   "name": "CompliScan AI Dev Container (Codespaces)",
   "image": "mcr.microsoft.com/devcontainers/python:3.10-bookworm",
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "8gb",
+    "storage": "32gb"
+  },
   "features": {
     "ghcr.io/devcontainers/features/node:1": {
       "version": "20"
@@ -11,7 +16,8 @@
     "PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION": "python",
     "FLAGS_use_mkldnn": "0",
     "PYTHONPATH": ".",
-    "PYTHONUNBUFFERED": "1"
+    "PYTHONUNBUFFERED": "1",
+    "CODESPACES_IDLE_TIMEOUT": "240"
   },
   "forwardPorts": [8000, 3000],
   "portsAttributes": {
@@ -27,6 +33,13 @@
     }
   },
   "customizations": {
+    "codespaces": {
+      "idleTimeout": 240,
+      "openFiles": [
+        "backend/main.py",
+        "backend/vlm_engine.py"
+      ]
+    },
     "vscode": {
       "settings": {
         "terminal.integrated.defaultProfile.linux": "bash",
@@ -44,5 +57,6 @@
     }
   },
   "postCreateCommand": "bash .devcontainer/setup.sh",
+  "postStartCommand": "nohup python3 scripts/keep_alive.py > /tmp/keep_alive.log 2>&1 &",
   "remoteUser": "vscode"
 }

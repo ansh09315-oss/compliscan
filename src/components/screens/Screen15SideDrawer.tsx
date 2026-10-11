@@ -4,7 +4,7 @@ import React from 'react';
 import { useAppStore } from '@/lib/store';
 import {
   X, LayoutDashboard, PlusCircle, History, BarChart3, Wifi, WifiOff,
-  BookOpen, LogOut, Cloud, User, Shield, Settings
+  BookOpen, LogOut, Cloud, User, Shield, Settings, Globe
 } from 'lucide-react';
 import type { ScreenId } from '@/types/metrology';
 
@@ -14,6 +14,8 @@ export default function Screen15SideDrawer() {
     isOfflineMode, offlineQueue, logout,
   } = useAppStore();
 
+  const userRole = currentInspector?.role || 'INSPECTOR';
+
   const navItems: { id: ScreenId; label: string; icon: React.ElementType; badge?: number }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'new-start', label: 'New Inspection', icon: PlusCircle },
@@ -21,6 +23,8 @@ export default function Screen15SideDrawer() {
     { id: 'analytics', label: 'Analytics & Reports', icon: BarChart3 },
     { id: 'offline-sync', label: 'Offline Sync', icon: Cloud, badge: offlineQueue.length || undefined },
     { id: 'regulations', label: 'Regulations', icon: BookOpen },
+    { id: 'admin-portal', label: userRole === 'ADMIN' ? 'Admin Portal' : 'Admin Console (Restricted)', icon: Shield },
+    { id: 'landing', label: 'Public GovTech Portal', icon: Globe },
   ];
 
   const handleNav = (screen: ScreenId) => {
@@ -104,8 +108,19 @@ export default function Screen15SideDrawer() {
               <User size={24} color="#D4AF37" />
             </div>
             <div>
-              <div style={{ fontSize: '15px', fontWeight: 700 }}>
-                {currentInspector?.fullName || 'Inspector'}
+              <div style={{ fontSize: '15px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>{currentInspector?.fullName || 'Inspector'}</span>
+                <span style={{
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  background: userRole === 'ADMIN' ? '#7C3AED' : 'rgba(212, 175, 55, 0.3)',
+                  color: '#FFFFFF',
+                  letterSpacing: '0.04em',
+                }}>
+                  {userRole}
+                </span>
               </div>
               <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>
                 Badge #{currentInspector?.badgeNumber} • {currentInspector?.assignedDistrict}
