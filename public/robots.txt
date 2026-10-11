@@ -3,25 +3,29 @@
 
 User-agent: *
 Allow: /
-Allow: /api/compliance/evaluate
-Disallow: /api/auth/
-Disallow: /api/telemetry/
-Disallow: /api/sync/
+Allow: /login
+Disallow: /api/
 
 User-agent: Googlebot
 Allow: /
+Allow: /login
 Allow: /assets/
-Allow: /api/compliance/evaluate
-
-User-agent: Bingbot
-Allow: /
-Allow: /assets/
+Disallow: /api/
 
 User-agent: OAI-SearchBot
 Allow: /
+Allow: /login
+Disallow: /api/
 
 User-agent: PerplexityBot
 Allow: /
+Allow: /login
+Disallow: /api/
 
-Sitemap: https://compliscan.gov.in/sitemap.xml
-Sitemap: http://localhost:3000/sitemap.xml
+User-agent: Bingbot
+Allow: /
+Allow: /login
+Allow: /assets/
+Disallow: /api/
+
+Sitemap: https://compliscan.netlify.app/sitemap.xml

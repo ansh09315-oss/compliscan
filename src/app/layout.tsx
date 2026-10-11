@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://compliscan.netlify.app'),
   title: "CompliScan AI — Automated Legal Metrology Act 2009 & PCR 2011 Compliance Platform",
-  description: "CompliScan AI (SIH 26034) is India's automated Legal Metrology & Packaged Commodities Rules (PCR 2011) inspection platform. Verify Rule 6(11) Unit Sale Price math, Rule 7 PDP font heights, FSSAI norms, and generate BSA 2023 Section 63 court-admissible digital evidence dossiers in <4.5 seconds.",
+  description: "CompliScan AI (SIH 26034) automates Legal Metrology & Packaged Commodities Rules (PCR 2011) audits, Rule 6(11) Unit Sale Price math, Rule 7 PDP font heights, FSSAI checks, and BSA 2023 §63 digital evidence dossiers in <4.5s.",
   keywords: [
     "CompliScan AI",
     "CompliScan",
@@ -11,12 +12,9 @@ export const metadata: Metadata = {
     "Packaged Commodities Rules 2011 AI",
     "PCR 2011 Compliance Scanner",
     "Rule 6(11) Unit Sale Price Calculator",
-    "Rule 7 Principal Display Panel Font Height",
-    "Bharatiya Sakshya Adhiniyam Section 63 Digital Evidence",
-    "SIH 26034 Ministry of Consumer Affairs",
-    "FMCG Packaging Audit India",
-    "Legal Metrology label compliance",
-    "automated packaging verification India"
+    "Rule 7 Font Height Matrix",
+    "BSA 2023 Section 63 Digital Evidence",
+    "SIH 26034"
   ],
   authors: [{ name: "Government of India — Ministry of Consumer Affairs (SIH 26034)" }],
   creator: "CompliScan AI Taskforce",
@@ -38,9 +36,9 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_IN",
-    url: "https://compliscan.gov.in/",
+    url: "/",
     title: "CompliScan AI — Automated Legal Metrology Act 2009 & PCR 2011 Compliance Platform",
-    description: "Automated regulatory screening platform for packaged commodities under the Legal Metrology Act, 2009, Packaged Commodities Rules, 2011, and Bharatiya Sakshya Adhiniyam, 2023 evidence protocols.",
+    description: "CompliScan AI (SIH 26034) automates Legal Metrology & Packaged Commodities Rules (PCR 2011) audits, Rule 6(11) Unit Sale Price math, Rule 7 PDP font heights, FSSAI checks, and BSA 2023 §63 digital evidence dossiers in <4.5s.",
     siteName: "CompliScan AI",
     images: [
       {
@@ -54,7 +52,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "CompliScan AI — Automated Legal Metrology Act 2009 & PCR 2011 Compliance Platform",
-    description: "Multimodal AI screening for packaged commodities under PCR 2011 & BSA 2023 digital evidence.",
+    description: "CompliScan AI (SIH 26034) automates Legal Metrology & Packaged Commodities Rules (PCR 2011) audits, Rule 6(11) Unit Sale Price math, Rule 7 PDP font heights, FSSAI checks, and BSA 2023 §63 digital evidence dossiers in <4.5s.",
     images: ["/assets/og-banner.png"],
   },
   category: "Government Enterprise Compliance Software",
@@ -65,15 +63,15 @@ const jsonLdGraph = {
   "@graph": [
     {
       "@type": ["Organization", "Brand"],
-      "@id": "https://compliscan.gov.in/#organization",
+      "@id": "https://compliscan.netlify.app/#organization",
       "name": "CompliScan AI",
-      "alternateName": "CompliScan Legal Metrology AI",
-      "url": "https://compliscan.gov.in",
-      "logo": "https://compliscan.gov.in/assets/emblem.svg",
-      "description": "National automated regulatory inspection platform for packaged commodities under the Legal Metrology Act 2009 and Packaged Commodities Rules 2011.",
+      "alternateName": "CompliScan Legal Metrology AI (SIH 26034)",
+      "url": "https://compliscan.netlify.app",
+      "logo": "https://compliscan.netlify.app/assets/emblem.svg",
+      "description": "National automated regulatory inspection platform for packaged commodities under the Legal Metrology Act 2009 and Packaged Commodities Rules 2011 (SIH 26034).",
       "parentOrganization": {
         "@type": "GovernmentOrganization",
-        "name": "Ministry of Consumer Affairs, Food and Public Distribution, Government of India",
+        "name": "Ministry of Consumer Affairs, Food and Public Distribution, Government of India (SIH 26034)",
         "url": "https://consumeraffairs.nic.in"
       },
       "slogan": "Precision Statutory Metrology for India's Consumer Protection",
@@ -82,31 +80,32 @@ const jsonLdGraph = {
         "Legal Metrology (Packaged Commodities) Rules, 2011",
         "Bharatiya Sakshya Adhiniyam, 2023 Section 63",
         "FSSAI Labeling Norms",
-        "Unit Sale Price Verification"
+        "Rule 6(11) Unit Sale Price Verification",
+        "Rule 7 Principal Display Panel Font Height"
       ]
     },
     {
       "@type": "WebSite",
-      "@id": "https://compliscan.gov.in/#website",
-      "url": "https://compliscan.gov.in",
+      "@id": "https://compliscan.netlify.app/#website",
+      "url": "https://compliscan.netlify.app",
       "name": "CompliScan AI Official Portal",
       "description": "Official GovTech portal for automated legal metrology compliance verification and digital evidence generation.",
-      "publisher": { "@id": "https://compliscan.gov.in/#organization" },
+      "publisher": { "@id": "https://compliscan.netlify.app/#organization" },
       "inLanguage": "en-IN"
     },
     {
       "@type": "SoftwareApplication",
-      "@id": "https://compliscan.gov.in/#software",
+      "@id": "https://compliscan.netlify.app/#software",
       "name": "CompliScan AI",
-      "applicationCategory": ["GovernmentApplication", "BusinessApplication", "UtilitiesApplication"],
-      "operatingSystem": "Web, Android, iOS, Linux Edge Terminals",
-      "url": "https://compliscan.gov.in",
-      "softwareVersion": "2.4.0-SIH2026",
+      "applicationCategory": ["GovernmentApplication", "BusinessApplication"],
+      "operatingSystem": "Web, Android, iOS, Linux",
+      "url": "https://compliscan.netlify.app",
+      "softwareVersion": "2.4.0-SIH26034",
       "offers": {
         "@type": "Offer",
         "price": "0.22",
         "priceCurrency": "INR",
-        "description": "Cost per 4-panel AI multimodal packaging verification dossier"
+        "description": "0.22 INR per scan"
       },
       "aggregateRating": {
         "@type": "AggregateRating",
@@ -118,17 +117,14 @@ const jsonLdGraph = {
     },
     {
       "@type": "GovernmentService",
-      "@id": "https://compliscan.gov.in/#service",
+      "@id": "https://compliscan.netlify.app/#service",
       "name": "Automated Legal Metrology Act 2009 & PCR 2011 Compliance Inspection",
       "serviceType": "Statutory Packaging Inspection & Judicial Evidence Sealing",
       "serviceOperator": {
         "@type": "GovernmentOrganization",
-        "name": "Legal Metrology Division, Department of Consumer Affairs (SIH 26034)"
+        "name": "Ministry of Consumer Affairs (SIH 26034)"
       },
-      "areaServed": {
-        "@type": "Country",
-        "name": "India"
-      },
+      "areaServed": "IN",
       "audience": {
         "@type": "Audience",
         "audienceType": "Legal Metrology Officers, District Consumer Forums, Enforcement Inspectors, Packaging Manufacturers"
@@ -136,46 +132,46 @@ const jsonLdGraph = {
     },
     {
       "@type": "FAQPage",
-      "@id": "https://compliscan.gov.in/#faq",
+      "@id": "https://compliscan.netlify.app/#faq",
       "mainEntity": [
         {
           "@type": "Question",
-          "name": "What is CompliScan AI and how does it automate Legal Metrology inspections under PCR 2011?",
+          "name": "How does CompliScan AI eliminate AI hallucinations during legal enforcement?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "CompliScan AI (SIH 26034) is an automated multimodal AI inspection system engineered for the Legal Metrology Division. It inspects packaged commodities across 4 synchronized panels (Front PDP, Back, Regulatory, and MRP/Batch) using Gemini Vision models, geometric computer vision, and a deterministic TypeScript compliance engine to verify all statutory declarations in under 4.5 seconds."
+            "text": "CompliScan implements a strict split-path architecture. While Gemini Multimodal VLM synthesizes visual and linguistic contexts across 4 angles, all statutory numerical checks (MRP, Net Quantity, Font Height, USP) are arbitrated by the Master Brain in deterministic TypeScript and Python math. A dedicated verification function (_is_number_grounded_in_ocr) verifies that every reported number exists verbatim in raw PaddleOCR tokens before generating statutory violation notices."
           }
         },
         {
           "@type": "Question",
-          "name": "How does CompliScan AI calculate and verify Rule 6(11) Unit Sale Price (USP) mathematically?",
+          "name": "What legal validity do CompliScan inspection dossiers hold in Indian courts?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Under Rule 6(11) of the Legal Metrology (Packaged Commodities) Rules, 2011, commodities must declare Unit Sale Price rounded to the nearest two decimal places (e.g. ₹/g, ₹/kg, ₹/ml, ₹/l, ₹/piece). CompliScan AI extracts declared MRP and Net Quantity, performs exact IEEE 754 float-calibrated math, compares it to the printed USP declaration, and immediately flags any discrepancy exceeding statutory rounding limits."
+            "text": "Every inspection generates a cryptographic tamper-evident dossier complying with Section 63(4) of the Bharatiya Sakshya Adhiniyam, 2023 (replacing Section 65B of the Indian Evidence Act). The platform auto-generates two official certificates: Schedule Part A (Electronic System Custodian Certificate) and Schedule Part B (Officer in Charge Declaration), binding high-resolution evidence images, inspector GPS coordinates, and raw SHA-256 hashes into a court-ready PDF."
           }
         },
         {
           "@type": "Question",
-          "name": "How is Rule 7 Principal Display Panel (PDP) font height calibrated from photos?",
+          "name": "How does the system calculate PDP area for irregular or cylindrical containers under Rule 7?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Rule 7 & the First Schedule of PCR 2011 require numeral font heights between 1.0mm and 6.0mm depending on container geometry and PDP area (cm²). CompliScan AI computes packaging surface area (rectangular, cylindrical, pouch, or irregular), computes minimum statutory numeral heights, and utilizes sub-millimeter bounding box calibration to verify that printed numerals satisfy mandatory physical thresholds."
+            "text": "Under Rule 7 of the Packaged Commodities Rules, 2011, PDP area calculation depends on package geometry. For rectangular boxes, area is Height × Width ÷ 100. For cylindrical cans and bottles, Rule 7 mandates calculating 40% of the total height multiplied by container circumference (0.40 × [Height × Circumference] ÷ 100). CompliScan AI includes pre-calibrated geometric estimators to automatically determine the exact threshold tier."
           }
         },
         {
           "@type": "Question",
-          "name": "Are CompliScan AI electronic inspection reports admissible in court under Section 63 of Bharatiya Sakshya Adhiniyam, 2023?",
+          "name": "Can enforcement officers conduct raids in offline rural mandis without internet?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Yes. Every inspection dossier generates a cryptographically sealed digital evidence certificate compliant with Section 63(4) of Bharatiya Sakshya Adhiniyam, 2023 (BSA). The record incorporates master SHA-256 evidence hashing across all camera frames, GPS coordinates, device hardware ID bonding, and timestamping to guarantee tamper-evidence in legal enforcement proceedings."
+            "text": "Yes. CompliScan AI is built with an offline-first service worker architecture using client-side IndexedDB caching. When inspecting in underground warehouses or remote rural mandis with zero signal, inspection photos, local PaddleOCR extractions, and preliminary Rule 7 measurements are recorded locally. Once the device re-enters 4G/5G or Wi-Fi range, queued dossiers seamlessly synchronize with the central government database."
           }
         },
         {
           "@type": "Question",
-          "name": "Can CompliScan AI operate in offline standalone mode in rural mandis and remote retail checkpoints?",
+          "name": "How does the Unit Sale Price (USP) calculation handle different metric commodities?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Yes. CompliScan AI features an offline-first architecture with IndexedDB local queues. Field inspectors operating in remote areas with zero network connectivity can perform visual inspections, calculate rule checks locally, store signed evidence packages, and automatically batch-synchronize to central servers when connection is restored."
+            "text": "Per Gazette Notification GSR 779(E) amending PCR 2011, commodities under 1 kg must declare price per gram, commodities of 1 kg or more must declare price per kilogram, commodities under 1 liter must declare price per milliliter, and commodities of 1 liter or more must declare price per liter. For items sold by number, the price per item/piece is mandatory. CompliScan automatically applies unit normalization and validates declarations within a ±₹0.05 statutory tolerance."
           }
         }
       ]

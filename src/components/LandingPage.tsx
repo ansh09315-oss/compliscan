@@ -85,7 +85,7 @@ export default function LandingPage({ onLogin }: LandingPageProps) {
         </div>
 
         {/* Sticky Primary Navigation */}
-        <nav className="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 shadow-sm transition-all">
+        <nav aria-label="Official GovTech Navigation" className="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 shadow-sm transition-all">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
             {/* Emblem & Portal Brand */}
             <div className="flex items-center gap-3.5 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
@@ -237,7 +237,7 @@ export default function LandingPage({ onLogin }: LandingPageProps) {
 
               {/* Main Heading (Single H1) */}
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#0B2545] tracking-tight leading-[1.18]">
-                India&apos;s Automated Legal Metrology &amp; Packaging Compliance Inspection Engine
+                CompliScan AI: India&apos;s Automated Legal Metrology &amp; Packaging Compliance Inspection Engine
               </h1>
 
               {/* Sub-paragraph */}
