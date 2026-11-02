@@ -4,7 +4,7 @@ import React from 'react';
 import { useAppStore } from '@/lib/store';
 import {
   X, LayoutDashboard, PlusCircle, History, BarChart3, Wifi, WifiOff,
-  BookOpen, LogOut, Cloud, User, Shield, Settings, Globe
+  BookOpen, LogOut, Cloud, User, Shield, Settings
 } from 'lucide-react';
 import type { ScreenId } from '@/types/metrology';
 
@@ -24,7 +24,6 @@ export default function Screen15SideDrawer() {
     { id: 'offline-sync', label: 'Offline Sync', icon: Cloud, badge: offlineQueue.length || undefined },
     { id: 'regulations', label: 'Regulations', icon: BookOpen },
     { id: 'admin-portal', label: userRole === 'ADMIN' ? 'Admin Portal' : 'Admin Console (Restricted)', icon: Shield },
-    { id: 'landing', label: 'Public GovTech Portal', icon: Globe },
   ];
 
   const handleNav = (screen: ScreenId) => {

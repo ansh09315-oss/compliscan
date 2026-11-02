@@ -2,7 +2,7 @@
 Engine 3: The Master Brain — Cross-Validation Judge & Legal Metrology Engine
 (backend/master_brain.py)
 
-Pure Python deterministic logic (NO AI) for Split-Path Tri-Core Architecture (SIH 26034).
+Pure Python deterministic logic (NO AI) for Split-Path Tri-Core Architecture.
 Receives JSON from:
   - Path A: VLM Engine (Gemini 1.5 Flash on raw image)
   - Path B: OCR Engine (PaddleOCR on 4-stage enhanced frames)

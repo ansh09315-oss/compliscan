@@ -1,6 +1,6 @@
 # ==============================================================================
-# CompliScan (SIH 26034) - Backend Production Dockerfile
-# Optimized for Hugging Face Spaces (CPU / Debian Linux)
+# CompliScan AI - Backend Production Dockerfile
+# Optimized for Hugging Face Spaces / Render / Docker (CPU / Debian Linux)
 # ==============================================================================
 
 FROM python:3.10-slim

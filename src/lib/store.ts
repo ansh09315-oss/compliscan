@@ -32,9 +32,17 @@ if (typeof window !== 'undefined') {
         localStorage.removeItem('compliscan-storage');
       } else {
         const parsed = JSON.parse(raw);
+        let modified = false;
         if (parsed?.state?.authToken || parsed?.state?.token) {
           delete parsed.state.authToken;
           delete parsed.state.token;
+          modified = true;
+        }
+        if (parsed?.state?.currentScreen === 'landing') {
+          parsed.state.currentScreen = 'login';
+          modified = true;
+        }
+        if (modified) {
           localStorage.setItem('compliscan-storage', JSON.stringify(parsed));
         }
       }
@@ -114,7 +122,7 @@ interface AppState {
 
 // ─── Default Inspector ───────────────────────────────────────────────────────
 
-const DEFAULT_INSPECTOR: Inspector = {
+export const DEFAULT_INSPECTOR: Inspector = {
   id: 'insp-001',
   badgeNumber: '1045',
   fullName: 'Rajesh Kumar Sharma',
@@ -133,7 +141,7 @@ export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
       // Navigation
-      currentScreen: 'landing',
+      currentScreen: 'dashboard',
       previousScreen: null,
       drawerOpen: false,
       setScreen: (screen) =>
@@ -163,11 +171,15 @@ export const useAppStore = create<AppState>()(
         // Asynchronously expire server-side httpOnly cookie
         if (typeof window !== 'undefined') {
           fetch('/api/auth', { method: 'DELETE', credentials: 'include' }).catch(() => {});
+          try {
+            localStorage.removeItem('compliscan-storage');
+            localStorage.removeItem('compliscan-storage-v2');
+          } catch {}
         }
         set({
           isAuthenticated: false,
           currentInspector: null,
-          currentScreen: 'landing',
+          currentScreen: 'dashboard',
           drawerOpen: false,
         });
       },
@@ -292,13 +304,19 @@ export const useAppStore = create<AppState>()(
           let response: Response | null = null;
           let lastError = '';
 
-          // 1. Try local FastAPI microservice first if reachable
-          const backendBase = (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000').trim().replace(/\/+$/, '');
+          // 1. Resolve backend endpoint:
+          // In production on Netlify (when NEXT_PUBLIC_BACKEND_URL is not set and we are not on localhost),
+          // directly invoke the built-in Next.js inspection engine without any localhost timeout delay.
+          const explicitBackend = process.env.NEXT_PUBLIC_BACKEND_URL?.trim().replace(/\/+$/, '');
+          const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+          const backendBase = explicitBackend || (isLocalhost ? 'http://localhost:8000' : '');
+
           if (backendBase) {
             try {
               console.log(`[CompliScan Engine] Trying primary backend at ${backendBase}/api/v1/inspection/scan...`);
               const controller = new AbortController();
-              const timeoutId = setTimeout(() => controller.abort(), 20000);
+              const probeTimeoutMs = isLocalhost ? 3000 : 15000;
+              const timeoutId = setTimeout(() => controller.abort(), probeTimeoutMs);
               const primaryRes = await fetch(`${backendBase}/api/v1/inspection/scan`, {
                 method: 'POST',
                 body: formData,
@@ -312,7 +330,7 @@ export const useAppStore = create<AppState>()(
                 lastError = `Primary backend returned status ${primaryRes.status}`;
               }
             } catch (err: any) {
-              console.warn(`[CompliScan Engine] Primary backend failed/timed out (${err.message}). Falling back to internal engine...`);
+              console.warn(`[CompliScan Engine] Primary backend unreachable (${err.message}). Falling back to internal engine...`);
               lastError = err.message;
             }
           }
@@ -523,7 +541,7 @@ export const useAppStore = create<AppState>()(
         }),
     }),
     {
-      name: 'compliscan-storage',
+      name: 'compliscan-storage-v2',
       storage: createJSONStorage(() => {
         if (typeof window === 'undefined') {
           return {
@@ -535,6 +553,10 @@ export const useAppStore = create<AppState>()(
         return {
           getItem: (key: string) => {
             try {
+              // Purge legacy storage key if present
+              if (localStorage.getItem('compliscan-storage')) {
+                localStorage.removeItem('compliscan-storage');
+              }
               return localStorage.getItem(key);
             } catch (e) {
               console.warn('[CompliScan] Failed reading from localStorage:', e);
@@ -581,8 +603,7 @@ export const useAppStore = create<AppState>()(
         };
       }),
       partialize: (state) => ({
-        isAuthenticated: state.isAuthenticated,
-        currentInspector: state.currentInspector,
+        // DO NOT persist isAuthenticated or currentInspector in localStorage so the Public Landing Page is always shown first
         isOfflineMode: state.isOfflineMode,
         // Persist only compact summary fields for history to keep localStorage under 20KB
         inspectionHistory: (state.inspectionHistory || []).slice(0, 15).map((d) => ({
@@ -617,5 +638,3 @@ export const useAppStore = create<AppState>()(
     }
   )
 );
-
-export { DEFAULT_INSPECTOR };

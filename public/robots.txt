@@ -1,5 +1,5 @@
 # CompliScan AI - Robots.txt Directive
-# Automated Legal Metrology Inspection Portal (SIH 26034)
+# Automated Legal Metrology Inspection Portal
 
 User-agent: *
 Allow: /

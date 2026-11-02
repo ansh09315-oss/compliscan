@@ -15,7 +15,7 @@ PORT="${PORT:-8000}"
 HOST="${HOST:-0.0.0.0}"
 
 echo "=========================================================="
-echo "⚖️  CompliScan AI Legal Metrology Engine (SIH 26034)"
+echo "⚖️  CompliScan AI Legal Metrology Engine"
 echo "📡 Binding to http://${HOST}:${PORT}"
 echo "=========================================================="
 

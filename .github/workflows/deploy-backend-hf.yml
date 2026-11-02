@@ -1,0 +1,61 @@
+name: Deploy Backend to Hugging Face Spaces
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'backend/**'
+      - 'Dockerfile'
+      - '.github/workflows/deploy-backend-hf.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy-hf:
+    name: Sync Backend to Hugging Face Space
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check Hugging Face Secrets
+        id: check-secrets
+        run: |
+          if [ -z "${{ secrets.HF_TOKEN }}" ] || [ -z "${{ secrets.HF_SPACE_NAME }}" ]; then
+            echo "::warning ::Hugging Face secrets (HF_TOKEN or HF_SPACE_NAME) not yet configured. Skipping direct push."
+            echo "configured=false" >> $GITHUB_OUTPUT
+          else
+            echo "configured=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy to Hugging Face Space
+        if: steps:check-secrets.outputs.configured == 'true'
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_NAME: ${{ secrets.HF_SPACE_NAME }}
+        run: |
+          # Configure git identity for automated deployment
+          git config --global user.email "deploy-bot@compliscan.ai"
+          git config --global user.name "CompliScan GitHub Actions"
+
+          # Clone existing Hugging Face Space to temporary directory
+          HF_REPO_URL="https://user:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE_NAME}"
+          TEMP_DIR=$(mktemp -d)
+          git clone "$HF_REPO_URL" "$TEMP_DIR"
+
+          # Copy backend source files and standalone Dockerfile to Space root
+          cp -r backend/* "$TEMP_DIR/"
+          cp backend/Dockerfile "$TEMP_DIR/Dockerfile"
+          cp backend/README.md "$TEMP_DIR/README.md"
+          cp backend/requirements.txt "$TEMP_DIR/requirements.txt"
+
+          cd "$TEMP_DIR"
+          git add -A
+          if git diff --staged --quiet; then
+            echo "⚡ No changes detected in backend; Hugging Face Space is already up-to-date."
+          else
+            git commit -m "deploy: automated sync from GitHub Actions (${GITHUB_SHA::7})"
+            git push origin main
+            echo "✅ Successfully deployed backend to Hugging Face Space: https://huggingface.co/spaces/${HF_SPACE_NAME}"
+          fi

@@ -1,4 +1,4 @@
-# GitHub Codespaces Backend Deployment Guide — CompliScan (SIH 26034)
+# GitHub Codespaces Backend Deployment Guide — CompliScan AI
 
 GitHub provides **120 free core-hours every month** for every account. In Codespaces, you get an **8GB RAM Linux machine (2-core or 4-core)**, which is ideal for running PaddleOCR and FastAPI without memory limits or slowdowns.
 
@@ -59,7 +59,7 @@ In the Codespace terminal, run:
 You will see:
 ```text
 ==========================================================
-⚖️  CompliScan AI Legal Metrology Engine (SIH 26034)
+⚖️  CompliScan AI Legal Metrology Engine
 📡 Binding to http://0.0.0.0:8000
 ==========================================================
 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)

@@ -1,11 +1,13 @@
 'use client';
 
 import React from 'react';
-import { useAppStore } from '@/lib/store';
+import { useAppStore, DEFAULT_INSPECTOR } from '@/lib/store';
 import { Menu, Shield, WifiOff } from 'lucide-react';
 
+// Landing Page with Integrated 3D Officer Login Vault
+import SpatialLandingPage from '@/components/SpatialLandingPage';
+
 // Screen imports
-import LandingPage from '@/components/LandingPage';
 import Screen01Login from '@/components/screens/Screen01Login';
 import Screen02Dashboard from '@/components/screens/Screen02Dashboard';
 import Screen03NewStart from '@/components/screens/Screen03NewStart';
@@ -25,8 +27,6 @@ import Screen16AdminPortal from '@/components/screens/Screen16AdminPortal';
 import ComplianceMetadataFooter from '@/components/ComplianceMetadataFooter';
 
 const screenComponents: Record<string, React.ComponentType<any>> = {
-  'landing': LandingPage,
-  'login': Screen01Login,
   'dashboard': Screen02Dashboard,
   'new-start': Screen03NewStart,
   'camera-hud': Screen04CameraHUD,
@@ -41,32 +41,37 @@ const screenComponents: Record<string, React.ComponentType<any>> = {
   'offline-sync': Screen13OfflineSync,
   'regulations': Screen14Regulations,
   'admin-portal': Screen16AdminPortal,
+  'login': Screen01Login,
 };
 
 export default function HomePage() {
-  const { currentScreen, isAuthenticated, isOfflineMode, toggleDrawer, currentInspector, login, setScreen } = useAppStore();
+  const { currentScreen, isAuthenticated, isOfflineMode, toggleDrawer, currentInspector, login } = useAppStore();
+  const [showLoginScreen, setShowLoginScreen] = React.useState(false);
 
-  React.useEffect(() => {
-    // Validate session cookie with server on initial mount without touching localStorage
-    if (!isOfflineMode && typeof window !== 'undefined') {
-      fetch('/api/auth', { credentials: 'include' })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success && data.authenticated && data.inspector) {
-            login(data.inspector);
-          }
-        })
-        .catch(() => {});
+  // When unauthenticated:
+  if (!isAuthenticated) {
+    if (showLoginScreen) {
+      return (
+        <Screen01Login
+          onBackToLanding={() => setShowLoginScreen(false)}
+        />
+      );
     }
-  }, [isOfflineMode, login]);
 
-  const CurrentScreen = screenComponents[currentScreen] || LandingPage;
-  const showNavbar = isAuthenticated && currentScreen !== 'login' && currentScreen !== 'landing' && currentScreen !== 'camera-hud' && currentScreen !== 'ai-processing';
+    return (
+      <SpatialLandingPage
+        onLoginClick={() => setShowLoginScreen(true)}
+      />
+    );
+  }
+
+  const CurrentScreen = screenComponents[currentScreen] || Screen02Dashboard;
+  const showNavbar = isAuthenticated && currentScreen !== 'camera-hud' && currentScreen !== 'ai-processing';
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* Offline Banner */}
-      {isOfflineMode && isAuthenticated && currentScreen !== 'landing' && (
+      {isOfflineMode && isAuthenticated && (
         <div className="offline-banner">
           <WifiOff size={14} style={{ display: 'inline', verticalAlign: '-2px', marginRight: '6px' }} />
           Offline Mode: Data stored locally; will synchronize when connection is restored
@@ -77,7 +82,13 @@ export default function HomePage() {
       {showNavbar && (
         <nav className="gov-navbar">
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <img src="/assets/emblem.svg" alt="Emblem" style={{ width: '32px', height: '32px' }} />
+            <img
+              src="/assets/emblem.svg"
+              alt="National Emblem of India - Legal Metrology Division"
+              width={32}
+              height={32}
+              style={{ width: '32px', height: '32px' }}
+            />
             <div>
               <div style={{ fontSize: '15px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Shield size={14} color="#D4AF37" />
@@ -122,16 +133,12 @@ export default function HomePage() {
       )}
 
       {/* Screen Content */}
-      <main style={{ flex: 1, background: currentScreen === 'login' || currentScreen === 'ai-processing' || currentScreen === 'camera-hud' || currentScreen === 'landing' ? 'transparent' : 'var(--slate-bg)' }}>
-        {currentScreen === 'landing' ? (
-          <LandingPage onLogin={() => setScreen(isAuthenticated ? 'dashboard' : 'login')} />
-        ) : (
-          <CurrentScreen />
-        )}
+      <main style={{ flex: 1, background: currentScreen === 'ai-processing' || currentScreen === 'camera-hud' ? 'transparent' : 'var(--slate-bg)' }}>
+        <CurrentScreen />
       </main>
 
       {/* Compliance Metadata Footer */}
-      {currentScreen !== 'camera-hud' && currentScreen !== 'landing' && <ComplianceMetadataFooter />}
+      {currentScreen !== 'camera-hud' && <ComplianceMetadataFooter />}
 
       {/* Side Drawer */}
       <Screen15SideDrawer />

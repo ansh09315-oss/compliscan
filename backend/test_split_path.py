@@ -36,7 +36,7 @@ from master_brain import fuse_and_judge, _is_number_grounded_in_ocr
 
 def test_split_path_components():
     print("========================================================================")
-    print("RUNNING SPLIT-PATH TRI-CORE INSPECTION ARCHITECTURE VERIFICATION (SIH 26034)")
+    print("RUNNING SPLIT-PATH TRI-CORE INSPECTION ARCHITECTURE VERIFICATION")
     print("========================================================================\n")
 
     # ── Test 1: Image Enhancer 4 Essential Techniques ──────────────────────────

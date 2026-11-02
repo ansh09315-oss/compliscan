@@ -1,17 +1,37 @@
-fastapi>=0.100.0
-uvicorn[standard]>=0.22.0
-python-multipart>=0.0.6
-opencv-python-headless>=4.8.0.74
-paddlepaddle>=2.6.0; sys_platform == 'linux'
-paddleocr>=2.7.3
-google-generativeai>=0.8.0
-supabase>=2.0.0
-numpy>=1.24.0,<2.0.0
-reportlab>=4.0.0
-httpx>=0.24.0
-pydantic>=2.0.0
-Pillow>=10.0.0
-python-dotenv>=1.0.0
-tenacity>=8.2.3
-playwright>=1.40.0
+# ==============================================================================
+# CompliScan AI — Backend Python Dependencies (Locked for Production)
+# Target: Hugging Face Spaces / Docker / Render (Python 3.10)
+# ==============================================================================
 
+# ── Core Web Framework ─────────────────────────────────────────────────────────
+fastapi>=0.111.0,<0.115.0
+uvicorn[standard]>=0.30.0,<0.35.0
+python-multipart>=0.0.9
+
+# ── Computer Vision & OCR ──────────────────────────────────────────────────────
+opencv-python-headless>=4.9.0.80
+Pillow>=10.3.0,<12.0.0
+numpy>=1.24.0,<2.0.0
+
+# ── PaddleOCR (Linux-only: Hugging Face Spaces / Render / Docker) ─────────────
+# paddlepaddle and paddleocr are excluded on non-Linux for local dev.
+# They are installed via the Dockerfile for production containers.
+paddlepaddle>=2.6.0; sys_platform == 'linux'
+paddleocr>=2.7.3; sys_platform == 'linux'
+
+# ── AI / LLM Engine ───────────────────────────────────────────────────────────
+google-generativeai>=0.8.0,<0.9.0
+
+# ── Database Layer ────────────────────────────────────────────────────────────
+supabase>=2.4.0,<3.0.0
+httpx>=0.27.0,<0.30.0
+
+# ── PDF & Report Generation ───────────────────────────────────────────────────
+reportlab>=4.2.0,<5.0.0
+
+# ── Data Validation & Config ──────────────────────────────────────────────────
+pydantic>=2.7.0,<3.0.0
+python-dotenv>=1.0.1
+
+# ── Retry & Resilience ────────────────────────────────────────────────────────
+tenacity>=8.3.0,<9.0.0

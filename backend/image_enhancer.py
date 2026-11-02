@@ -1,6 +1,6 @@
 """
 Industrial-Grade Packaging Image Enhancement Engine (backend/image_enhancer.py)
-Path B Preprocessing for Split-Path Tri-Core Architecture (SIH 26034)
+Path B Preprocessing for Split-Path Tri-Core Architecture
 
 Applies ALL essential packaging enhancement techniques:
 1. CLAHE (Contrast Limited Adaptive Histogram Equalization) for specular glare removal on shiny plastics/pouches.

@@ -1,0 +1,77 @@
+name: CompliScan Production Frontend Deployment
+
+# ==============================================================================
+# CompliScan AI - Production Frontend Deployment Pipeline
+# Deploys exact "As-Is" localhost golden master to Netlify Production
+# ==============================================================================
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    paths-ignore:
+      - 'backend/**'
+      - 'Dockerfile'
+      - '**.md'
+  workflow_dispatch:
+    inputs:
+      trigger_reason:
+        description: 'Reason for manual production deployment'
+        required: false
+        default: 'Manual Production Deployment Trigger'
+
+concurrency:
+  group: production-frontend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy-frontend:
+    name: Build & Deploy Golden Master to Netlify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: 🔒 1. Checkout Repository (Exact Golden Master Code)
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+
+      - name: ⚡ 2. Setup Node.js LTS Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 📦 3. Install Frozen Dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: 🗄️ 4. Generate Prisma Client
+        run: npx prisma generate
+
+      - name: 🔍 5. Strict Type & Build Check
+        run: npx tsc --noEmit
+
+      - name: 🏗️ 6. Build Next.js Production Bundle
+        run: npm run build
+        env:
+          NODE_ENV: production
+          NEXT_TELEMETRY_DISABLED: 1
+          NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL || 'https://compliscan.netlify.app' }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://rdmzwjtokabipueifnzl.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_BACKEND_URL: ${{ secrets.NEXT_PUBLIC_BACKEND_URL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+      - name: 🔑 7. Check Netlify Deployment Credentials
+        id: check-secrets
+        run: |
+          if [ -z "${{ secrets.NETLIFY_AUTH_TOKEN }}" ] || [ -z "${{ secrets.NETLIFY_SITE_ID }}" ]; then
+            echo "::warning ::NETLIFY_AUTH_TOKEN or NETLIFY_SITE_ID is not configured in GitHub Secrets. Production bundle was built and verified successfully. To enable direct CLI deployment from Actions, add NETLIFY_AUTH_TOKEN and NETLIFY_SITE_ID to Repository Secrets."
+            echo "configured=false" >> $GITHUB_OUTPUT
+          else
+            echo "configured=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 🚀 8. Deploy to Netlify Production
+        if: steps.check-secrets.outputs.configured == 'true'
+        run: |
+          npx netlify-cli deploy --prod --dir=.next --auth="${{ secrets.NETLIFY_AUTH_TOKEN }}" --site="${{ secrets.NETLIFY_SITE_ID }}" --message="Production deploy from GitHub Actions (${GITHUB_SHA::7})"

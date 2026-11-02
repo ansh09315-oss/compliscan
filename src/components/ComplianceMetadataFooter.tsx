@@ -588,7 +588,7 @@ export default function ComplianceMetadataFooter() {
           }}
         >
           <div>
-            <span style={{ color: '#D4AF37', fontWeight: 700 }}>CompliScan AI</span> : Legal Metrology Compliance Inspection Platform (SIH 26034)
+            <span style={{ color: '#D4AF37', fontWeight: 700 }}>CompliScan AI</span> : Legal Metrology Compliance Inspection Platform
           </div>
           <div>
             &copy; 2026 Legal Metrology Verification System. Guidelines for Indian Government Websites (GIGW) Compliant.

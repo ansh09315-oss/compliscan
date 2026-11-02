@@ -1,6 +1,6 @@
 """
 FastAPI Controller (backend/main.py)
-Split-Path Tri-Core 4-Angle Inspection Architecture (SIH 26034)
+Split-Path Tri-Core 4-Angle Inspection Architecture
 
 Accepts multi-angle packaging inspection images:
   1. Front (Principal Display Panel: Brand, Name, Net Quantity)
@@ -59,7 +59,7 @@ app = FastAPI(
     description="Split-Path Tri-Core Architecture: 4-Angle Ingestion (Front, Back, Regulatory, MRP) -> VLM + OCR -> Brain MD"
 )
 
-# ── Security Configuration: CORS & Security Headers ──────────────────────────
+# â”€â”€ Security Configuration: CORS & Security Headers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 cors_env = os.getenv("ALLOWED_ORIGINS", "")
 if cors_env.strip():
     allowed_origins = [o.strip() for o in cors_env.split(",") if o.strip()]
@@ -68,6 +68,8 @@ else:
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "https://localhost:3000",
+        # Production frontend
+        "https://compliscan.netlify.app",
     ]
 
 # Credentials can only be enabled if origins is not wildcard '*'
@@ -76,10 +78,10 @@ allow_credentials = False if "*" in allowed_origins else True
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    allow_origin_regex=r"^https:\/\/.*(\.app\.github\.dev|\.netlify\.app|\.hf\.space)$",
+    allow_origin_regex=r"^https:\/\/.*\.(netlify\.app|hf\.space|onrender\.com|app\.github\.dev)$",
     allow_credentials=allow_credentials,
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With", "Cache-Control"],
 )
 
 @app.middleware("http")
@@ -98,7 +100,7 @@ def health_check():
     vlm_available = bool(_load_gemini_key_from_env())
     return {
         "status": "healthy",
-        "service": "CompliScan AI Legal Metrology Microservice — 4-Angle Split-Path Engine",
+        "service": "CompliScan AI Legal Metrology Microservice â€” 4-Angle Split-Path Engine",
         "architecture": "4-Angle (Front, Back, Regulatory, MRP) -> Path A (VLM) + Path B (OCR) -> Brain MD",
         "paths": {
             "pathA_vlm_gemini_3_6": "ACTIVE" if vlm_available else "INACTIVE (no GEMINI_API_KEY)",
@@ -193,7 +195,7 @@ async def scan_product_dossier(
             f"Evidence SHA-256: {primary_hash[:16]}... Launching Multi-Image Split-Path execution..."
         )
 
-        # ── Parallel Execution: Path A (Multi-Image VLM) and Path B (Enhanced OCR) ────
+        # â”€â”€ Parallel Execution: Path A (Multi-Image VLM) and Path B (Enhanced OCR) â”€â”€â”€â”€
         if asyncio.iscoroutinefunction(extract_comprehensive_details):
             path_a_task = extract_comprehensive_details(image_bytes_list)
         else:
@@ -212,7 +214,7 @@ async def scan_product_dossier(
 
         if vlm_result:
             logger.info(
-                f"[PATH A: VLM] Completed multi-image synthesis — "
+                f"[PATH A: VLM] Completed multi-image synthesis â€” "
                 f"Product: '{vlm_result.get('productName')}', Brand: '{vlm_result.get('brandName')}', "
                 f"MRP: {vlm_result.get('mrpValue')}, NetQty: {vlm_result.get('netQuantityValue')} {vlm_result.get('netQuantityUnit')}"
             )
@@ -221,8 +223,8 @@ async def scan_product_dossier(
 
         lines_count = len(ocr_result.get("rawTextStrings", []))
         logger.info(
-            f"[PATH B: OCR] Completed multi-panel OCR — {lines_count} lines across {len(angle_images)} sides | "
-            f"Font Height: {ocr_result.get('detectedNumeralHeightMm')} mm | PDP Area: {ocr_result.get('pdpAreaCm2')} cm²"
+            f"[PATH B: OCR] Completed multi-panel OCR â€” {lines_count} lines across {len(angle_images)} sides | "
+            f"Font Height: {ocr_result.get('detectedNumeralHeightMm')} mm | PDP Area: {ocr_result.get('pdpAreaCm2')} cmÂ²"
         )
 
         if lines_count == 0 and not vlm_result:
@@ -232,7 +234,7 @@ async def scan_product_dossier(
                        "Please ensure proper lighting and orientation."
             )
 
-        # ── Step 4: Brain MD / Cross-Validation Judge ─────────────────────
+        # â”€â”€ Step 4: Brain MD / Cross-Validation Judge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         logger.info("[BRAIN MD] Cross-validating multi-image VLM and OCR extractions...")
         verdict_json = fuse_and_judge(vlm_result, ocr_result)
 
@@ -258,13 +260,13 @@ async def scan_product_dossier(
         }
 
         logger.info(
-            f"[VERDICT] Compiled Dossier {dossier_code} — "
+            f"[VERDICT] Compiled Dossier {dossier_code} â€” "
             f"Score: {verdict_json['evaluation']['complianceScore']}% | "
             f"Verdict: {verdict_json['evaluation']['verdict']} | "
             f"Hallucinations Blocked: {verdict_json['triCoreMetadata']['hallucinationsBlocked']}"
         )
 
-        # ── Step 5: Background Cloud Persistence (Supabase) ───────────────
+        # â”€â”€ Step 5: Background Cloud Persistence (Supabase) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         try:
             supabase_record = persist_dossier_to_supabase(
                 dossier_code=dossier_code,
@@ -396,3 +398,4 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", "8000"))
     host = os.getenv("HOST", "0.0.0.0")
     uvicorn.run("backend.main:app" if debug_mode else app, host=host, port=port, reload=debug_mode)
+

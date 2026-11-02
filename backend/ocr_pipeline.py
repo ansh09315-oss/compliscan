@@ -1,6 +1,6 @@
 """
 Multi-Pass Packaging OCR Pipeline (backend/ocr_pipeline.py)
-Path B OCR Engine for Split-Path Tri-Core Architecture (SIH 26034)
+Path B OCR Engine for Split-Path Tri-Core Architecture
 
 Dual-Frame Optical Character Recognition using PaddleOCR PP-OCRv4 with Oriented Angle Classification (use_angle_cls=True).
 Runs across:

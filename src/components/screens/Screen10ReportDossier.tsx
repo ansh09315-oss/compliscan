@@ -119,39 +119,44 @@ export default function Screen10ReportDossier() {
 
       // Also notify backend if online
       try {
-        const backendBase = (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000').replace(/\/+$/, '');
-        await fetch(`${backendBase}/api/v1/inspection/save-dossier`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            dossierCode: activeDossier.dossierReferenceCode,
-            masterSha256Hash: activeDossier.masterSha256Hash,
-            extractedData: {
-              productName: formData.productName,
-              brandName: formData.brandName,
-              category: formData.category,
-              packagingGeometry: formData.packagingGeometry,
-              netQuantityValue: Number(formData.declaredNetQuantity),
-              netQuantityUnit: formData.declaredNetUnit,
-              mrpValue: Number(formData.declaredMrp),
-              declaredUspValue: formData.declaredUspValue ? Number(formData.declaredUspValue) : null,
-              declaredUspUnit: formData.declaredUspUnit,
-              mfgMonth: Number(formData.declaredMfgMonth),
-              mfgYear: Number(formData.declaredMfgYear),
-              manufacturerName: formData.manufacturerName,
-              manufacturerAddress: formData.manufacturerAddress,
-              countryOfOrigin: formData.countryOfOrigin,
-              consumerCarePhone: formData.consumerCarePhone,
-              consumerCareEmail: formData.consumerCareEmail,
-              inspectorRemarks: formData.inspectorRemarks
-            },
-            evaluation: {
-              complianceScore: activeDossier.complianceScore,
-              verdict: activeDossier.verdict,
-              violations: activeDossier.violations
-            }
-          })
-        });
+        const explicitBackend = process.env.NEXT_PUBLIC_BACKEND_URL?.trim().replace(/\/+$/, '');
+        const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+        const backendBase = explicitBackend || (isLocalhost ? 'http://localhost:8000' : '');
+        if (backendBase) {
+          await fetch(`${backendBase}/api/v1/inspection/save-dossier`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            signal: AbortSignal.timeout(3000),
+            body: JSON.stringify({
+              dossierCode: activeDossier.dossierReferenceCode,
+              masterSha256Hash: activeDossier.masterSha256Hash,
+              extractedData: {
+                productName: formData.productName,
+                brandName: formData.brandName,
+                category: formData.category,
+                packagingGeometry: formData.packagingGeometry,
+                netQuantityValue: Number(formData.declaredNetQuantity),
+                netQuantityUnit: formData.declaredNetUnit,
+                mrpValue: Number(formData.declaredMrp),
+                declaredUspValue: formData.declaredUspValue ? Number(formData.declaredUspValue) : null,
+                declaredUspUnit: formData.declaredUspUnit,
+                mfgMonth: Number(formData.declaredMfgMonth),
+                mfgYear: Number(formData.declaredMfgYear),
+                manufacturerName: formData.manufacturerName,
+                manufacturerAddress: formData.manufacturerAddress,
+                countryOfOrigin: formData.countryOfOrigin,
+                consumerCarePhone: formData.consumerCarePhone,
+                consumerCareEmail: formData.consumerCareEmail,
+                inspectorRemarks: formData.inspectorRemarks
+              },
+              evaluation: {
+                complianceScore: activeDossier.complianceScore,
+                verdict: activeDossier.verdict,
+                violations: activeDossier.violations
+              }
+            })
+          });
+        }
       } catch {
         // Non-fatal if local backend offline
       }
@@ -209,24 +214,29 @@ export default function Screen10ReportDossier() {
         }
       };
 
-      const backendBase = (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000').replace(/\/+$/, '');
-      const res = await fetch(`${backendBase}/api/v1/inspection/export-pdf`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      const explicitBackend = process.env.NEXT_PUBLIC_BACKEND_URL?.trim().replace(/\/+$/, '');
+      const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+      const backendBase = explicitBackend || (isLocalhost ? 'http://localhost:8000' : '');
+      if (backendBase) {
+        const res = await fetch(`${backendBase}/api/v1/inspection/export-pdf`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(5000),
+        });
 
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `CompliScan_Judicial_Dossier_${activeDossier.dossierReferenceCode}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
-        return;
+        if (res.ok) {
+          const blob = await res.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `CompliScan_Judicial_Dossier_${activeDossier.dossierReferenceCode}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(url);
+          return;
+        }
       }
     } catch (e) {
       console.warn('Backend PDF export error, falling back to print dialog:', e);
@@ -342,7 +352,13 @@ export default function Screen10ReportDossier() {
       {/* Report Header */}
       <div className="gov-card" style={{ padding: '24px', marginBottom: '20px', textAlign: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginBottom: '8px' }}>
-          <img src="/assets/emblem.svg" alt="Government Emblem" style={{ width: '44px', height: '44px' }} />
+          <img
+            src="/assets/emblem.svg"
+            alt="State Emblem of India - Ministry of Consumer Affairs Legal Metrology Division"
+            width={44}
+            height={44}
+            style={{ width: '44px', height: '44px' }}
+          />
           <div>
             <h1 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--navy)' }}>
               LEGAL METROLOGY INSPECTION DOSSIER

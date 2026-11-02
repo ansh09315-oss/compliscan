@@ -1,5 +1,5 @@
 # ==============================================================================
-# CompliScan (SIH 26034) - Netlify Configuration
+# CompliScan AI - Netlify Configuration
 # Next.js (React 19) Frontend Deployment to Netlify
 # ==============================================================================
 
@@ -40,13 +40,13 @@
     Cache-Control = "public, max-age=31536000, immutable"
 
 # ------------------------------------------------------------------------------
-# API Reverse Proxy (Optional Convenience)
-# Routes requests from /api/py/* directly to Hugging Face Spaces without CORS
-# Replace placeholder with your real Hugging Face Space URL in production
+# API Reverse Proxy & Serverless Routing
+# Routes /api/py/* directly to the built-in Next.js App Router API on Netlify (/api/v1/*),
+# ensuring 100% full-stack operation entirely on Netlify free tier.
 # ------------------------------------------------------------------------------
 [[redirects]]
   from = "/api/py/*"
-  to = "https://YOUR_HF_USERNAME-compliscan-backend.hf.space/api/v1/:splat"
+  to = "/api/v1/:splat"
   status = 200
-  force = true
-  headers = {X-From = "Netlify-CompliScan"}
+  headers = {X-Engine = "CompliScan-Netlify-Serverless"}
+

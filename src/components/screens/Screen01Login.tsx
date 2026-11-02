@@ -9,7 +9,6 @@ import {
   MapPin,
   Wifi,
   WifiOff,
-  Fingerprint,
   AlertCircle,
   ShieldCheck,
   Check,
@@ -24,7 +23,11 @@ import {
 } from 'lucide-react';
 import { sanitizeInput } from '@/lib/sanitize';
 
-export default function Screen01Login() {
+interface Screen01LoginProps {
+  onBackToLanding?: () => void;
+}
+
+export default function Screen01Login({ onBackToLanding }: Screen01LoginProps = {}) {
   const { login, setOfflineMode, isOfflineMode, setScreen } = useAppStore();
 
   // Tab State: 'login' | 'signup'
@@ -255,33 +258,6 @@ export default function Screen01Login() {
     }
   };
 
-  // MeriPehchan SSO Handler
-  const handleSSO = async () => {
-    setIsLoading(true);
-    setErrorMessage(null);
-    try {
-      const res = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          officerId: '1045',
-          sso: true,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        login(data.inspector);
-      } else {
-        setErrorMessage(data.error || 'Gov-SSO handshake failed.');
-      }
-    } catch {
-      login(DEFAULT_INSPECTOR);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const isSignupFormValid =
     signupBadge.trim() &&
     signupName.trim() &&
@@ -309,37 +285,31 @@ export default function Screen01Login() {
         transition: 'max-width 0.3s ease',
         animation: 'fade-in-up 0.5s ease-out',
       }}>
-        {/* Return to Public Portal Button */}
-        <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'flex-start' }}>
+        {onBackToLanding && (
           <button
             type="button"
-            onClick={() => setScreen('landing')}
+            onClick={onBackToLanding}
             style={{
-              background: 'rgba(255, 255, 255, 0.08)',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              color: '#D4AF37',
-              borderRadius: '8px',
-              padding: '6px 12px',
-              fontSize: '12px',
-              fontWeight: 600,
-              cursor: 'pointer',
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '6px',
-              transition: 'background 0.15s, border-color 0.15s',
+              gap: '8px',
+              color: 'rgba(255, 255, 255, 0.85)',
+              fontSize: '13px',
+              fontWeight: 600,
+              background: 'rgba(255, 255, 255, 0.08)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              borderRadius: '8px',
+              padding: '8px 16px',
+              marginBottom: '20px',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
-              e.currentTarget.style.borderColor = '#D4AF37';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
-            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.16)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)')}
           >
-            <ArrowLeft size={14} /> Back to Public Portal
+            <ArrowLeft size={15} /> &larr; Return to Public Landing Page
           </button>
-        </div>
+        )}
 
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
@@ -576,7 +546,7 @@ export default function Screen01Login() {
               <button
                 type="submit"
                 className="gov-btn gov-btn-primary"
-                style={{ width: '100%', marginBottom: '12px', padding: '12px' }}
+                style={{ width: '100%', marginBottom: '16px', padding: '12px' }}
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -586,16 +556,6 @@ export default function Screen01Login() {
                     <Lock size={16} /> Authenticate & Access
                   </>
                 )}
-              </button>
-
-              <button
-                type="button"
-                className="gov-btn gov-btn-outline"
-                style={{ width: '100%', marginBottom: '16px', padding: '12px' }}
-                onClick={handleSSO}
-                disabled={isLoading}
-              >
-                <Fingerprint size={16} /> Login with MeriPehchan (SSO)
               </button>
             </form>
           )}

@@ -45,7 +45,7 @@ export default function GovTechLandingPage({
   const faqItems = [
     {
       q: "What is CompliScan AI and how does it automate Legal Metrology inspections under PCR 2011?",
-      a: "CompliScan AI (SIH 26034) is India's national automated multimodal AI inspection system engineered for the Legal Metrology Division. It inspects packaged commodities across 4 synchronized panels (Front PDP, Back, Regulatory, and MRP/Batch) using Gemini Vision models, geometric computer vision, and a deterministic compliance engine to verify statutory declarations in under 4.5 seconds."
+      a: "CompliScan AI is India's national automated multimodal AI inspection system engineered for the Legal Metrology Division. It inspects packaged commodities across 4 synchronized panels (Front PDP, Back, Regulatory, and MRP/Batch) using Gemini Vision models, geometric computer vision, and a deterministic compliance engine to verify statutory declarations in under 4.5 seconds."
     },
     {
       q: "How does CompliScan AI calculate and verify Rule 6(11) Unit Sale Price (USP) mathematically?",
@@ -84,7 +84,9 @@ export default function GovTechLandingPage({
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <img
                 src="/assets/emblem.svg"
-                alt="Emblem of India"
+                alt="Emblem of India - National Legal Metrology Portal"
+                width={22}
+                height={22}
                 style={{ width: '22px', height: '22px', filter: 'brightness(1.2)' }}
               />
               <span style={{ fontWeight: 600, letterSpacing: '0.02em', color: 'rgba(255,255,255,0.9)' }}>
@@ -99,7 +101,7 @@ export default function GovTechLandingPage({
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#16A34A', fontSize: '11px', fontWeight: 600, background: 'rgba(22, 163, 74, 0.15)', padding: '2px 8px', borderRadius: '4px' }}>
                 <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#16A34A', display: 'inline-block' }} />
-                SIH 26034 Nodal Gateway Active
+                Legal Metrology Nodal Gateway Active
               </span>
               <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '11px' }}>
                 28 States & 8 UTs Enabled
@@ -143,7 +145,7 @@ export default function GovTechLandingPage({
                 <div style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   CompliScan AI
                   <span style={{ fontSize: '10px', background: '#D4AF37', color: '#0B2545', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
-                    SIH 26034
+                    OFFICIAL
                   </span>
                 </div>
                 <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.04em' }}>
@@ -253,7 +255,7 @@ export default function GovTechLandingPage({
 
         <div style={{ maxWidth: '1280px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
           <div style={{ maxWidth: '880px', margin: '0 auto', textAlign: 'center' }}>
-            {/* SIH 26034 Pill Badge */}
+            {/* National Metrology Pill Badge */}
             <div style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -268,7 +270,7 @@ export default function GovTechLandingPage({
               letterSpacing: '0.04em',
               marginBottom: '20px',
             }}>
-              <Award size={15} /> NATIONAL SMART INDIA HACKATHON 2026 • PROBLEM STATEMENT SIH 26034
+              <Award size={15} /> MINISTRY OF CONSUMER AFFAIRS • LEGAL METROLOGY DIVISION
             </div>
 
             {/* Primary Semantic H1 */}

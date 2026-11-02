@@ -63,7 +63,7 @@ def create_panel_images():
 
 def run_multi_angle_test():
     print("====================================================================")
-    print("TESTING 4-ANGLE SPLIT-PATH INSPECTION SYNTHESIS (SIH 26034)")
+    print("TESTING 4-ANGLE SPLIT-PATH INSPECTION SYNTHESIS")
     print("====================================================================\n")
 
     panels = create_panel_images()

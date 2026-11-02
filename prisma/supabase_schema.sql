@@ -1,5 +1,5 @@
 -- ============================================================================
--- CompliScan AI - Supabase PostgreSQL Schema for SIH 26034
+-- CompliScan AI - Supabase PostgreSQL Production Schema
 -- Legal Metrology Packaged Commodities Inspection Database
 -- Run this in your Supabase SQL Editor: https://supabase.com/dashboard/project/_/sql
 -- ============================================================================

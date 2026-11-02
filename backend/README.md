@@ -7,10 +7,10 @@ sdk: docker
 app_port: 7860
 pinned: false
 license: mit
-short_description: AI-driven Legal Metrology Compliance System (SIH 26034)
+short_description: AI-driven Legal Metrology Compliance System
 ---
 
-# CompliScan — AI Legal Metrology Backend (SIH 26034)
+# CompliScan — AI Legal Metrology Backend
 
 FastAPI microservice running:
 - **Path A**: Multi-Image Gemini VLM Semantic Synthesis

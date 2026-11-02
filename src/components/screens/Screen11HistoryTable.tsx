@@ -294,8 +294,12 @@ export default function Screen11HistoryTable() {
     setStatusMessage(`Preparing report for ${dossier.dossierReferenceCode}...`);
 
     try {
-      // 1. Try FastAPI backend PDF compilation endpoint
-      const backendBase = (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000').replace(/\/+$/, '');
+      const explicitBackend = process.env.NEXT_PUBLIC_BACKEND_URL?.trim().replace(/\/+$/, '');
+      const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+      const backendBase = explicitBackend || (isLocalhost ? 'http://localhost:8000' : '');
+      if (!backendBase) {
+        throw new Error('Using client report generator');
+      }
       const payload = {
         dossierCode: dossier.dossierReferenceCode,
         imageSha256: dossier.masterSha256Hash,

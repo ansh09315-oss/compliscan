@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# CompliScan (SIH 26034) - Local Linux Deployment & Validation Script
+# CompliScan AI - Local Linux Deployment & Validation Script
 # Builds and runs the Hugging Face Spaces Docker container locally to verify
 # PaddleOCR, OpenCV, and FastAPI initialization before pushing to production.
 # ==============================================================================

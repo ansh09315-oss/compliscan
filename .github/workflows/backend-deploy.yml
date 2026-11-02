@@ -1,0 +1,198 @@
+name: CompliScan Production Backend Deployment
+
+# ==============================================================================
+# CompliScan AI — Phase 3: Backend GitHub Action Pipeline (FastAPI / Python)
+# Deploys exact "As-Is" localhost Tri-Core backend to Render / Hugging Face
+# ZERO application code mutation. Pipeline-only configuration.
+# ==============================================================================
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    paths:
+      - 'backend/**'
+      - 'Dockerfile'
+      - '.github/workflows/backend-deploy.yml'
+  workflow_dispatch:
+    inputs:
+      trigger_reason:
+        description: 'Reason for manual backend deployment'
+        required: false
+        default: 'Manual Backend Production Deployment'
+
+concurrency:
+  group: production-backend-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: '3.10'
+  STARTUP_CMD: 'uvicorn main:app --host 0.0.0.0 --port $PORT'
+
+jobs:
+  # ──────────────────────────────────────────────────────────────────────────────
+  # Job 1: Verify backend code integrity before any deployment
+  # ──────────────────────────────────────────────────────────────────────────────
+  verify-backend:
+    name: 🔍 Verify & Validate Backend Modules
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: 🔒 Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: 🐍 Setup Python (matching local environment)
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: 'backend/requirements.txt'
+
+      - name: 📋 Verify requirements.txt is up-to-date
+        run: |
+          echo "── Verifying requirements.txt exists and is non-empty ──"
+          if [ ! -f backend/requirements.txt ]; then
+            echo "::error ::backend/requirements.txt is missing!"
+            exit 1
+          fi
+
+          LINE_COUNT=$(grep -cve '^\s*$' backend/requirements.txt | head -1 || echo 0)
+          echo "  Found $LINE_COUNT non-empty lines in requirements.txt"
+
+          # Verify critical dependencies are declared
+          REQUIRED_DEPS=("fastapi" "uvicorn" "google-generativeai" "opencv-python-headless" "pydantic" "httpx" "reportlab")
+          MISSING=""
+          for dep in "${REQUIRED_DEPS[@]}"; do
+            if ! grep -qi "$dep" backend/requirements.txt; then
+              MISSING="$MISSING $dep"
+            fi
+          done
+
+          if [ -n "$MISSING" ]; then
+            echo "::error ::requirements.txt is missing critical dependencies:$MISSING"
+            exit 1
+          fi
+
+          echo "✅ requirements.txt validated — all critical dependencies declared."
+
+      - name: 📦 Install Locked Production Requirements
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -r backend/requirements.txt
+
+      - name: 🛡️ Static Syntax & Bytecode Compilation Check
+        run: |
+          echo "── Compiling all backend Python modules ──"
+          python -m py_compile backend/main.py
+          python -m py_compile backend/master_brain.py
+          python -m py_compile backend/ocr_pipeline.py
+          python -m py_compile backend/image_enhancer.py
+          python -m py_compile backend/supabase_db.py
+          python -m py_compile backend/vlm_engine.py
+          python -m py_compile backend/report_generator.py
+          echo "✅ All 7 Tri-Core backend modules compiled successfully (zero syntax errors)."
+
+      - name: ⚖️ Run Tri-Core Arbitration Verification Test
+        run: |
+          python backend/test_split_path.py
+        env:
+          PYTHONPATH: backend
+
+      - name: 📊 Print Verified Startup Command
+        run: |
+          echo "══════════════════════════════════════════════════════════"
+          echo "  Backend Production Startup Command:"
+          echo "  ${{ env.STARTUP_CMD }}"
+          echo "══════════════════════════════════════════════════════════"
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  # Job 2: Deploy to Render (Free Tier — Primary Target)
+  # ──────────────────────────────────────────────────────────────────────────────
+  deploy-render:
+    name: 🌐 Deploy to Render (Free Tier)
+    needs: verify-backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: ${{ always() && needs.verify-backend.result == 'success' }}
+
+    steps:
+      - name: 🔑 Check Render Deploy Hook
+        id: check-render
+        run: |
+          if [ -z "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" ]; then
+            echo "::warning ::RENDER_DEPLOY_HOOK_URL is not configured. Skipping Render deployment. To enable: add the Deploy Hook URL from Render Dashboard > Service > Settings > Deploy Hook."
+            echo "configured=false" >> $GITHUB_OUTPUT
+          else
+            echo "configured=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 🚀 Trigger Render Production Build
+        if: steps.check-render.outputs.configured == 'true'
+        run: |
+          echo "── Sending deploy webhook to Render ──"
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}")
+
+          if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 300 ]; then
+            echo "✅ Render deploy hook accepted (HTTP $HTTP_STATUS)."
+            echo "   Render will now pull the latest code, build the Docker container, and start:"
+            echo "   ${{ env.STARTUP_CMD }}"
+          else
+            echo "::error ::Render deploy hook returned HTTP $HTTP_STATUS. Check the webhook URL."
+            exit 1
+          fi
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  # Job 3: Deploy to Hugging Face Spaces (Free CPU Tier — Secondary Target)
+  # ──────────────────────────────────────────────────────────────────────────────
+  deploy-hf:
+    name: ☁️ Deploy to Hugging Face Spaces
+    needs: verify-backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: ${{ always() && needs.verify-backend.result == 'success' }}
+
+    steps:
+      - name: 🔒 Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: 🔑 Check Hugging Face Credentials
+        id: check-hf
+        run: |
+          if [ -z "${{ secrets.HF_TOKEN }}" ] || [ -z "${{ secrets.HF_SPACE_NAME }}" ]; then
+            echo "::warning ::HF_TOKEN or HF_SPACE_NAME not configured. Skipping Hugging Face deployment."
+            echo "configured=false" >> $GITHUB_OUTPUT
+          else
+            echo "configured=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 🚀 Sync & Deploy to Hugging Face Space
+        if: steps.check-hf.outputs.configured == 'true'
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_NAME: ${{ secrets.HF_SPACE_NAME }}
+        run: |
+          git config --global user.email "devops@compliscan.ai"
+          git config --global user.name "CompliScan DevOps Pipeline"
+
+          HF_REPO_URL="https://user:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE_NAME}"
+          TEMP_DIR=$(mktemp -d)
+          git clone "$HF_REPO_URL" "$TEMP_DIR"
+
+          # Copy exact golden master backend files
+          cp -r backend/* "$TEMP_DIR/"
+          cp backend/Dockerfile "$TEMP_DIR/Dockerfile"
+          cp backend/README.md "$TEMP_DIR/README.md"
+          cp backend/requirements.txt "$TEMP_DIR/requirements.txt"
+
+          cd "$TEMP_DIR"
+          git add -A
+          if git diff --staged --quiet; then
+            echo "⚡ No changes detected — Hugging Face Space is already running the golden master."
+          else
+            git commit -m "deploy: automated release from GitHub Actions (${GITHUB_SHA::7})"
+            git push origin main
+            echo "✅ Deployed backend to: https://huggingface.co/spaces/${HF_SPACE_NAME}"
+            echo "   Startup command inside container: ${{ env.STARTUP_CMD }}"
+          fi
