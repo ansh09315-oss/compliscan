@@ -21,8 +21,11 @@ jobs:
 
       - name: Check Hugging Face Secrets
         id: check-secrets
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_NAME: ${{ secrets.HF_SPACE_NAME }}
         run: |
-          if [ -z "${{ secrets.HF_TOKEN }}" ] || [ -z "${{ secrets.HF_SPACE_NAME }}" ]; then
+          if [ -z "${HF_TOKEN}" ] || [ -z "${HF_SPACE_NAME}" ]; then
             echo "::warning ::Hugging Face secrets (HF_TOKEN or HF_SPACE_NAME) not yet configured. Skipping direct push."
             echo "configured=false" >> $GITHUB_OUTPUT
           else
@@ -30,7 +33,7 @@ jobs:
           fi
 
       - name: Deploy to Hugging Face Space
-        if: steps:check-secrets.outputs.configured == 'true'
+        if: steps.check-secrets.outputs.configured == 'true'
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_SPACE_NAME: ${{ secrets.HF_SPACE_NAME }}
