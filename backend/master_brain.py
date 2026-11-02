@@ -140,6 +140,13 @@ def _cross_validate_numeric(
             logger.info(f"[Master Brain] {field_name}: VLM claim {vlm_f} confirmed by raw OCR text grounding.")
             return vlm_f, 0.98, "OCR_GROUNDED", False
         else:
+            # If rich OCR text was captured but this critical price number was completely ungrounded, reject as hallucination
+            if field_name in ["mrpValue", "declaredUspValue"] and len(raw_ocr_lines) >= 3:
+                logger.warning(
+                    f"[Master Brain] Anti-Hallucination: {field_name} VLM claim {vlm_f} is completely absent from OCR text ({len(raw_ocr_lines)} lines); rejecting as hallucination."
+                )
+                return 0.0, 0.0, "HALLUCINATION_REJECTED", True
+
             # High-resolution vision extraction: preserve VLM detection rather than discarding as None
             logger.info(
                 f"[Master Brain] {field_name}: VLM extracted {vlm_f} from visual packaging; accepting as primary."

@@ -375,6 +375,79 @@ def _flatten_comprehensive_schema(parsed: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _sanitize_vlm_output(raw: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Normalizes both nested and flat VLM output dictionaries into canonical statutory fields.
+    Handles field aliases such as productName, netQty, mrp, mfgDate, manufacturer.
+    """
+    if not isinstance(raw, dict):
+        return {}
+    
+    # If already a comprehensive nested schema, flatten it
+    if any(k in raw for k in ["productOverview", "pricingAndBatch", "manufacturerDetails"]):
+        return _flatten_comprehensive_schema(raw)
+
+    net_val = None
+    net_unit = "g"
+    raw_net = raw.get("netQuantityValue") or raw.get("netQty") or raw.get("netWeight") or ""
+    m_net = re.search(r'(\d+(?:\.\d+)?)\s*([a-zA-Z]+)?', str(raw_net))
+    if m_net:
+        try:
+            net_val = float(m_net.group(1))
+            if m_net.group(2):
+                net_unit = m_net.group(2).lower()
+        except ValueError:
+            pass
+
+    mrp_val = None
+    raw_mrp = raw.get("mrpValue") or raw.get("mrp") or raw.get("maxRetailPrice")
+    if raw_mrp is not None:
+        try:
+            mrp_val = float(str(raw_mrp).replace("Rs.", "").replace("₹", "").replace(",", "").strip())
+        except ValueError:
+            pass
+
+    mfg_month = None
+    mfg_year = None
+    raw_mfg = str(raw.get("mfgDate") or "")
+    parts = re.findall(r'\d+', raw_mfg)
+    if len(parts) >= 3:
+        try:
+            m = int(parts[1])
+            if m > 12 and int(parts[0]) <= 12:
+                m = int(parts[0])
+            mfg_month = m
+            raw_y = int(parts[2])
+            mfg_year = 2000 + raw_y if raw_y < 100 else raw_y
+        except ValueError:
+            pass
+    elif len(parts) == 2:
+        try:
+            mfg_month = int(parts[0])
+            raw_y = int(parts[1])
+            mfg_year = 2000 + raw_y if raw_y < 100 else raw_y
+        except ValueError:
+            pass
+
+    return {
+        "productName": raw.get("productName"),
+        "brandName": raw.get("brandName"),
+        "netQuantityValue": net_val,
+        "netQuantityUnit": raw.get("netQuantityUnit") or net_unit,
+        "mrpValue": mrp_val,
+        "declaredUspValue": raw.get("declaredUspValue"),
+        "declaredUspUnit": raw.get("declaredUspUnit"),
+        "mfgDate": raw.get("mfgDate"),
+        "mfgMonth": mfg_month,
+        "mfgYear": mfg_year,
+        "manufacturerName": raw.get("manufacturerName") or raw.get("manufacturer") or raw.get("companyName"),
+        "manufacturerAddress": raw.get("manufacturerAddress") or raw.get("address"),
+        "consumerCarePhone": raw.get("consumerCarePhone") or raw.get("customerCarePhone"),
+        "consumerCareEmail": raw.get("consumerCareEmail") or raw.get("customerCareEmail"),
+        "countryOfOrigin": raw.get("countryOfOrigin") or "India"
+    }
+
+
 def _identify_missing_statutory_fields(flattened: Dict[str, Any]) -> List[str]:
     """Identifies which mandatory declarations are missing or null."""
     missing = []
@@ -425,6 +498,10 @@ async def _execute_gemini_async_with_retry(
     Executes Gemini content generation asynchronously with Tenacity / exponential backoff.
     Catches 429 rate limits, 503 service unavailable, timeouts, and network resets.
     """
+    def _generate_sync():
+        response = model.generate_content(content_payload)
+        return response.text if (response and response.text) else ""
+
     if TENACITY_AVAILABLE:
         @retry(
             stop=stop_after_attempt(max_retries),
@@ -433,9 +510,7 @@ async def _execute_gemini_async_with_retry(
             reraise=True
         )
         async def _call_tenacity():
-            coro = model.generate_content_async(content_payload)
-            res = await asyncio.wait_for(coro, timeout=timeout_seconds)
-            return res.text if (res and res.text) else ""
+            return await asyncio.wait_for(asyncio.to_thread(_generate_sync), timeout=timeout_seconds)
 
         try:
             return await _call_tenacity()
@@ -447,9 +522,7 @@ async def _execute_gemini_async_with_retry(
         backoff = 1.5
         for attempt in range(1, max_retries + 1):
             try:
-                coro = model.generate_content_async(content_payload)
-                res = await asyncio.wait_for(coro, timeout=timeout_seconds)
-                return res.text if (res and res.text) else ""
+                return await asyncio.wait_for(asyncio.to_thread(_generate_sync), timeout=timeout_seconds)
             except Exception as e:
                 logger.warning(f"[VLM Backoff] Attempt {attempt}/{max_retries} failed: {e}")
                 if attempt < max_retries:
